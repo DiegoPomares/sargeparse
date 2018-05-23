@@ -1,0 +1,22 @@
+language: python
+
+python:
+- '3.4'
+- '3.5'
+- '3.6'
+
+env:
+  global:
+    - REPOSITORY_USER=DiegoPomares
+    - secure: "CSAyWV3qpWYpGrAdZXPdggOig9rXKb6nF994z0HEBhdMd5Ofn3/Fl4WFr+lkDMbMTZT573ZCjqPHsXwC5NbZ6wglCsXWIOLGgAc3BMYAj3RJnQrt/kYkm+46ibib88Trac1CVa6FUFElXmrnxu/wGD82eqpEnudulTSXVxIFqorxFjIQmFRx9qn/y3nYMB/39cjor/0ADnpgEFxb87dhPpNzjsT8FkdrmqQvxQYfdn7g1gPpq/IHrax0jhyqOHgy3Q59US9XSrMMMbw+eZIcDr8xJTTBdyapNCpEvZFo1aENkUgqc3Jy+5sGIYahF4WdCu0ySh0yPbpygf4luLIpGx2ASlpuESfI4djo1cLn4SO/KbyNrJd6H+tBmzGj/v/K2gvC8iez6+vD4BcYAryOVdyifoM6JQrho9cH5rSrmubacSzIQ5Sfv4n4P4GBkJPxYdHMwDlWq64i/RGU0PK9vS0ZDsN/HFpUZtnmrxxB6oT4YQrd/i23MpHHbm16CJTCN/0EH8lN07ez66tQh+kTII2TNcI5qFytvy6w2ODW5bPseTimpq1B28NlkHn7HGMS+2HcdzvxC0NIqa5ZuMJPot+Vk55rQ5JYfjyIzqk5AbIhNAL0WSE63LMvkKkOFb6FX3u17JcQFqeBHqKrOOYqsOdY+Q8bVTvo7JyBUefhv1A="
+
+script:
+- "./script/cibuild"
+
+deploy:
+  - provider: script
+    skip_cleanup: true
+    script: ./script/cideploy
+    on:
+      python: 3.6
+      tags: true

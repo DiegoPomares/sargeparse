@@ -1,0 +1,19 @@
+#!/bin/sh
+
+set -e
+
+
+cd "$(dirname "$(readlink -f "$0")")/.."
+
+if [ -z "$GIT_DIR" ]; then
+	echo "$0 should only be used by git"
+    exit 1
+fi
+
+VERSION_FILE="sargeparse/__init__.py"
+
+CURRENT_TAG="$(git describe --tags --abbrev=0 2>/dev/null || echo '0.0.0')"
+VERSION="$CURRENT_TAG.dev$(date +%y%m%d+%H%M%S)"
+
+sed -i "s/^__version__.*/__version__ = '$VERSION'/" $VERSION_FILE
+git add $VERSION_FILE

@@ -1,0 +1,22 @@
+#!/bin/sh
+
+set -e
+
+
+cd "$(dirname "$(readlink -f "$0")")/.."
+
+if [ -z "$TRAVIS" ]; then
+	echo "$0 should only be used in a CI environment like TravisCI"
+	exit 1
+fi
+
+if [ -z "$TRAVIS_TAG" ]; then
+	echo "Cannot set version, git commit tag not found"
+	exit 1
+fi
+
+VERSION_FILE="sargeparse/__init__.py"
+
+VERSION="$TRAVIS_TAG"
+
+sed -i "s/^__version__.*/__version__ = '$VERSION'/" $VERSION_FILE

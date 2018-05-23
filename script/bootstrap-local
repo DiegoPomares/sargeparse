@@ -1,0 +1,31 @@
+#!/bin/sh
+
+
+cd "$(dirname "$(readlink -f "$0")")/.."
+
+# Bootstrap only when necessary, otherwise activate the virtualenv
+if [ -f .bootstrapped ]; then
+    [ -f .python-version ] || . .venv/bin/activate
+
+else
+    # Install git hook
+    ln -f -s ../../script/pre-commit .git/hooks/pre-commit
+
+    # Create virtualenv manually if not using pyenv local
+    if [ ! -f .python-version ]; then
+        rm -rf .venv
+        virtualenv --prompt "(${PWD##*/}-venv) " $@ .venv
+        . .venv/bin/activate
+    fi
+
+    pip install --upgrade pip setuptools wheel virtualenv
+
+    # pip install -r requirements/requirements.txt
+    pip install -r requirements/test_requirements.txt
+
+    pip install -e .
+
+
+    touch .bootstrapped
+
+fi

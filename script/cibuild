@@ -1,0 +1,14 @@
+#!/bin/sh
+
+set -e
+
+
+cd "$(dirname "$(readlink -f "$0")")/.."
+
+if [ -z "$TRAVIS" ]; then
+	echo "$0 should only be used in a CI environment like TravisCI"
+	exit 1
+fi
+
+./script/cibootstrap
+./script/citest

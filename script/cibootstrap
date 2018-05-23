@@ -1,0 +1,16 @@
+#!/bin/sh
+
+set -e
+
+
+cd "$(dirname "$(readlink -f "$0")")/.."
+
+if [ -z "$TRAVIS" ]; then
+	echo "$0 should only be used in a CI environment like TravisCI"
+	exit 1
+fi
+
+pip install --upgrade pip setuptools wheel virtualenv
+
+# pip install -r requirements/requirements.txt
+pip install -r requirements/test_requirements.txt
