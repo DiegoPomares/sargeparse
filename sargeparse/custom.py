@@ -2,12 +2,34 @@ import sys
 import argparse
 import textwrap
 import shutil
+import re
+
+
+class PathDict(dict):
+    def get_path(self, path, default=None):
+        """Return the value for path, where path represent a list of keys in nested dicts separated by '/'"""
+
+        if isinstance(path, str):
+            path = re.split(r'(?<!\\)/', path)
+
+        if path:
+            key = path[0]
+        else:
+            raise RuntimeError("Invalid path")
+
+        if len(path) > 1:
+            if key not in self:
+                return default
+
+            return PathDict(self[key]).get_path(path[1:], default)
+
+        return super().get(key, default)
 
 
 class ArgumentParser(argparse.ArgumentParser):
     def error(self, message):
         sys.stderr.write('error: {}\n\n'.format(message))
-        self.print_help()
+        self.print_usage()
         sys.exit(2)
 
 

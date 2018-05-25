@@ -55,6 +55,7 @@ confidence=
 disable=
     duplicate-code,
     missing-docstring,
+    pointless-string-statement,
     protected-access
     # import-star-module-level,
     # invalid-name,
