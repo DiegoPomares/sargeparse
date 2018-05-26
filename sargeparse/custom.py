@@ -3,6 +3,15 @@ import argparse
 import textwrap
 import shutil
 import re
+import pprint
+
+
+class EZObject:
+    def __setattr__(self, name, value):
+        self.__dict__[name] = value
+
+    def __repr__(self):
+        return '<{}\n{}\n>'.format(type(self).__name__, pprint.pformat(self.__dict__, indent=2))
 
 
 class PathDict(dict):

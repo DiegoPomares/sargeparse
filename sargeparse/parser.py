@@ -5,49 +5,49 @@ import collections
 
 import sargeparse.consts
 
-from sargeparse.custom import PathDict, ArgumentParser, HelpFormatter
+from sargeparse.custom import EZObject, PathDict, ArgumentParser, HelpFormatter
 
 LOG = logging.getLogger(__name__)
 
 
 class Parser:
     _default_precedence = ['cli', 'environment', 'configuration', 'defaults']
-    _custom_arg_params = ['shared', 'envvar', 'default', 'config_path']
+    _custom_arg_params = ['default', 'global', 'envvar', 'config_path']
     _custom_ap_params = ['help_subcommand']
 
     def __init__(self, definition, **kwargs):
         definition = definition.copy()
+        self._ = EZObject()
 
-        self._show_warnings = kwargs.pop('show_warnings', True)
-        self._subcommand = kwargs.pop('_subcommand', False)
-        self._prefix_chars = definition.get('prefix_chars', '-')
+        self._.show_warnings = kwargs.pop('show_warnings', True)
+        self._.subcommand = kwargs.pop('_subcommand', False)
+        self._.prefix_chars = definition.get('prefix_chars', '-')
 
-        self._arguments = None
-        self._parsed_data = None
-        self._has_positional_arguments = False
+        self._.arguments = None
+        self._.parsed_data = None
+        self._.has_positional_arguments = False
 
         self.argument_definitions = []
         self.subcommand_definitions = []
         self.subparsers_kwargs = {}
-
         self.add_arguments(*definition.pop('arguments', []))
         self.add_subcommands(*definition.pop('subcommands', []))
         self.config_subparsers(**definition.pop('subparsers', {}))
-        self.default_kwargs = definition.pop('default', {})
+
+        self.group_descriptions = definition.pop('group_descriptions', {})
+        self.default_kwargs = definition.pop('defaults', {})
         self.argument_parser_kwargs = definition
 
-        if not self._subcommand:
+        if not self._.subcommand:
             self.help_subcommand = definition.pop('help_subcommand', True)
-            self._preprocess_base_ap_kwargs(self.argument_parser_kwargs)
-            self._preprocess_parser_ap_kwargs(self.argument_parser_kwargs)
+            self._preprocess_ap_kwargs(self.argument_parser_kwargs, subcommand=False)
 
             precedence = ['override'] + self._default_precedence + ['arg_default']
-            self._arguments = {k: {} for k in precedence}
-            self._parsed_data = collections.ChainMap()
+            self._.arguments = {k: {} for k in precedence}
+            self._.parsed_data = collections.ChainMap()
             self.set_precedence()
 
-    ################################################################################################
-    # User methods
+    # ------ User methods ------
     def add_arguments(self, *definition_list):
         for definition in definition_list:
             definition = definition.copy()
@@ -59,14 +59,11 @@ class Parser:
         for definition in definition_list:
             definition = definition.copy()
 
-            self._preprocess_base_ap_kwargs(definition)
-            self._preprocess_subcommand_ap_kwargs(definition)
+            self._preprocess_ap_kwargs(definition, subcommand=True)
 
             self.subcommand_definitions.append(definition)
 
     def config_subparsers(self, **kwargs):
-        kwargs = kwargs.copy()
-
         self._log_warning_if_elements_are_different_from_none(kwargs, 'prog', 'help')
 
         kwargs.setdefault('title', 'subcommands')
@@ -75,9 +72,11 @@ class Parser:
 
         self.subparsers_kwargs = kwargs
 
-    def set_defaults(self, **kwargs):
-        kwargs = kwargs.copy()
-        self.default_kwargs = kwargs
+    def add_defaults(self, **kwargs):
+        self.default_kwargs.update(kwargs)
+
+    def add_group_descriptions(self, **kwargs):
+        self.group_descriptions.update(kwargs)
 
     def parse(self, argv=None, read_config=None):
         argv = argv or sys.argv[1:]
@@ -88,13 +87,12 @@ class Parser:
 
         # Callback
         if read_config:
-            config = PathDict(read_config(self._parsed_data))
+            config = PathDict(read_config(self._.parsed_data))
             self._parse_config(config)
         else:
-            self._arguments['configuration'].clear()
+            self._.arguments['configuration'].clear()
 
-        return dict(self._parsed_data), self._parsed_data
-        # return self._parsed_data
+        return self._.parsed_data
 
     def set_precedence(self, precedence=None):
         precedence = precedence or self._default_precedence
@@ -105,14 +103,13 @@ class Parser:
             raise TypeError(msg.format(self._default_precedence))
 
         precedence = ['override'] + precedence + ['arg_default']
-        self._parsed_data.maps = [self._arguments[k] for k in precedence]
+        self._.parsed_data.maps = [self._.arguments[k] for k in precedence]
 
-    ################################################################################################
-    # Preprocessors
+    # ------ Argument definition pre-processors ------
     def _preprocess_argument_definition(self, definition):
         self._preprocess_base_argument_definition(definition)
 
-        if self._subcommand:
+        if self._.subcommand:
             self._preprocess_subcommand_argument_definition(definition)
         else:
             self._preprocess_parser_argument_definition(definition)
@@ -123,7 +120,7 @@ class Parser:
         if not definition.get('names'):
             raise TypeError("Argument 'names' missing or invalid")
 
-        dest = self._make_dest_from_names(definition['names'])
+        dest = self._make_dest_from_argument_names(definition['names'])
 
         if self._is_argument_positional(definition):
 
@@ -134,26 +131,33 @@ class Parser:
                 )
                 raise TypeError(msg)
 
-            self._has_positional_arguments = True
+            self._.has_positional_arguments = True
 
             if self.subcommand_definitions:
                 self._log_warning_parser_has_positional_arguments_and_subcommands()
 
         else:  # argument is optional
-
-            if 'dest' not in definition:
-                definition['dest'] = dest
+            definition.setdefault('dest', dest)
 
     def _preprocess_parser_argument_definition(self, definition):
-        definition.setdefault('shared', False)
+        definition.setdefault('global', False)
 
-        if definition['shared'] and self._is_argument_positional(definition):
-            raise TypeError("Positional arguments cannot be 'shared': '{}'".format(definition['names'][0]))
+        if definition['global'] and self._is_argument_positional(definition):
+            raise TypeError("Positional arguments cannot be 'global': '{}'".format(definition['names'][0]))
 
     @staticmethod
     def _preprocess_subcommand_argument_definition(definition):
-        if 'shared' in definition:
-            raise TypeError("'shared' arguments are not available in subcommands")
+        if 'global' in definition:
+            raise TypeError("'global' arguments are not available in subcommands")
+
+    # ------ ArgumentParser kwargs pre-processors ------
+    def _preprocess_ap_kwargs(self, definition, *, subcommand):
+        self._preprocess_base_ap_kwargs(definition)
+
+        if subcommand:
+            self._preprocess_subcommand_ap_kwargs(definition)
+        else:
+            self._preprocess_parser_ap_kwargs(definition)
 
     def _preprocess_base_ap_kwargs(self, kwargs):
         # Change argparse.ArgumentParser defaults
@@ -161,7 +165,7 @@ class Parser:
         kwargs.setdefault('formatter_class', HelpFormatter)
         kwargs.setdefault('argument_default', sargeparse.unset)
 
-        if self._show_warnings and kwargs['allow_abbrev']:
+        if self._.show_warnings and kwargs['allow_abbrev']:
             LOG.warning("Disabling 'allow_abbrev' is probably better to ensure consistent behavior")
 
         self._log_warning_if_elements_are_different_from_none(kwargs, 'prog', 'usage')
@@ -178,14 +182,12 @@ class Parser:
 
         self._log_warning_if_missing(kwargs, "subcommand '{}'".format(kwargs['name']), 'help')
 
-        if 'description' not in kwargs:
-            kwargs['description'] = kwargs.get('help')
+        kwargs.setdefault('description', kwargs.get('help'))
 
-        if self._has_positional_arguments:
+        if self._.has_positional_arguments:
             self._log_warning_parser_has_positional_arguments_and_subcommands()
 
-    ################################################################################################
-    # Internal methods
+    # ------ CLI argument parsing methods ------
     def _add_subcommands(self, parser, *definition_list):
         for definition in definition_list:
             definition = definition.copy()
@@ -193,7 +195,7 @@ class Parser:
             name = definition.pop('name')
             subcommand = Parser(
                 definition,
-                show_warnings=self._show_warnings,
+                show_warnings=self._.show_warnings,
                 _subcommand=True,
             )
 
@@ -204,7 +206,8 @@ class Parser:
 
             arguments = subcommand._get_arguments()
             arguments = subcommand._pop_elements_from_dicts(arguments, *self._custom_arg_params)
-            subparser.add_arguments(*arguments)
+            argument_groups = self._group_arguments(arguments)
+            subparser.add_arguments(*argument_groups)
 
             subcommand._add_subcommands(subparser, *subcommand.subcommand_definitions)
 
@@ -217,10 +220,11 @@ class Parser:
         parser = _ArgumentParserHelper(ap)
         parser.set_defaults(**self.default_kwargs)
 
-        # Add shared arguments first
-        shared_arguments = self._get_arguments(shared=True)
-        shared_arguments = self._pop_elements_from_dicts(shared_arguments, *self._custom_arg_params)
-        parser.add_arguments(*shared_arguments)
+        # Add global arguments first
+        global_arguments = self._get_arguments(**{'global': True})
+        global_arguments = self._pop_elements_from_dicts(global_arguments, *self._custom_arg_params)
+        global_argument_groups = self._group_arguments(global_arguments)
+        parser.add_arguments(*global_argument_groups)
 
         # Replace help subcommand by --help at the end, makes it possible to use:
         # command help, command help subcommand, command help subcommand subsubcommand...
@@ -228,15 +232,16 @@ class Parser:
             argv.pop(0)
             argv.append('--help')
 
-        # Parse shared options first so they can be placed anywhere, unless the --help/-h flag is set
+        # Parse global options first so they can be placed anywhere, unless the --help/-h flag is set
         parsed_args, rest = None, argv
         if '-h' not in rest and '--help' not in rest:
             parsed_args, rest = parser.parse_known_args(rest)
 
         # Add the rest of arguments
-        arguments = self._get_arguments(shared=False)
+        arguments = self._get_arguments(**{'global': False})
         arguments = self._pop_elements_from_dicts(arguments, *self._custom_arg_params)
-        parser.add_arguments(*arguments)
+        argument_groups = self._group_arguments(arguments)
+        parser.add_arguments(*argument_groups)
 
         # Add subcommands
         self._add_subcommands(parser, *self.subcommand_definitions)
@@ -251,166 +256,8 @@ class Parser:
         parsed_args = parser.parse_args(rest, parsed_args)
 
         # Update _arguments
-        self._arguments['cli'].clear()
-        self._arguments['cli'].update(parsed_args.__dict__)
-
-    def _set_arg_default_dict_from_cli_dict(self):
-        for k, v in list(self._arguments['cli'].items()):
-            if v == sargeparse.unset:
-                self._arguments['cli'].pop(k)
-
-                if self.argument_parser_kwargs['argument_default'] == sargeparse.suppress:
-                    continue
-
-                self._arguments['arg_default'][k] = self.argument_parser_kwargs['argument_default']
-
-    def _get_argument_and_subcommand_definitions(self, definition=None):
-        if not definition:
-            argument_definitions = self.argument_definitions
-            subcommand_definitions = self.subcommand_definitions
-        else:
-            argument_definitions = definition.get('arguments', [])
-            subcommand_definitions = definition.get('subcommand_definitions', [])
-
-        return argument_definitions, subcommand_definitions
-
-    def _parse_envvars_and_defaults(self, definition=None):
-        argument_definitions, subcommand_definitions = self._get_argument_and_subcommand_definitions(definition)
-
-        for argument_definition in argument_definitions:
-            dest = self._make_dest_from_names(argument_definition['names'])
-
-            if 'envvar' in argument_definition:
-                envvar = os.environ.get(argument_definition['envvar'], sargeparse.unset)
-                if envvar != sargeparse.unset:
-                    self._arguments['environment'][dest] = envvar
-                else:
-                    self._arguments['arg_default'][dest] = self.argument_parser_kwargs['argument_default']
-
-            if 'default' in argument_definition:
-                default = argument_definition['default']
-                self._arguments['defaults'][dest] = default
-
-        for subcommand_definition in subcommand_definitions:
-            self._parse_envvars_and_defaults(subcommand_definition)
-
-    def _parse_config(self, config, definition=None):
-        argument_definitions, subcommand_definitions = self._get_argument_and_subcommand_definitions(definition)
-
-        for argument_definition in argument_definitions:
-            dest = self._make_dest_from_names(argument_definition['names'])
-
-            if 'config_path' in argument_definition:
-                config_value = config.get_path(argument_definition['config_path'], sargeparse.unset)
-                if config_value != sargeparse.unset:
-                    self._arguments['configuration'][dest] = config_value
-                else:
-                    self._arguments['arg_default'][dest] = self.argument_parser_kwargs['argument_default']
-
-        for subcommand_definition in subcommand_definitions:
-            self._parse_config(config, subcommand_definition)
-
-    def _log_warning_parser_has_positional_arguments_and_subcommands(self):
-        if self._show_warnings:
-            LOG.warning("Having subcommands and positional arguments simultaneously is probably a bad idea")
-
-    def _log_warning_if_missing(self, dictionary, where, *keys):
-        if self._show_warnings:
-            msg = "Missing '%s' in %s. Please add something helpful, or set it to None to hide this warning"
-            filtered_keys = [k for k in keys if k not in dictionary]
-
-            for k in filtered_keys:
-                LOG.warning(msg, k, where)
-                dictionary[k] = 'WARNING: MISSING {} MESSAGE'.format(k.upper())
-
-    def _log_warning_if_elements_are_different_from_none(self, dictionary, *keys):
-        if self._show_warnings:
-            msg = "The default value of '%s' is probably better than: '%s'"
-            filtered_dict = {k: v for k, v in dictionary.items() if k in keys and v is not None}
-
-            for k, v in filtered_dict.items():
-                LOG.warning(msg, k, v)
-
-    def _make_dest_from_names(self, names):
-        '''Get the 'dest' parameter based on the argument names'''
-
-        dest = None
-
-        for name in names:
-            if name[0] in self._prefix_chars and not dest:
-                dest = name[1:]
-
-            if name[0] not in self._prefix_chars:
-                dest = name
-                break
-
-            if name[0] in self._prefix_chars and name[0] == name[1]:
-                dest = name[2:]
-                break
-
-        return dest.replace('-', '_')
-
-    def _is_argument_positional(self, definition):
-        '''Return whether or not an argument is 'positional', being 'optional' the alternative'''
-
-        return definition['names'][0][0] not in self._prefix_chars
-
-    @staticmethod
-    def _check_argument_properties(argument, **schema):
-        '''Return True if the argument satisfies the schema'''
-
-        for k, v in schema.items():
-            # Special cases
-            if v == sargeparse.unset:  # Property wasn't set in argument schema
-                if k not in argument:
-                    continue
-                else:
-                    return False
-
-            if v == sargeparse.isset:  # Property was set in argument schema
-                if k in argument:
-                    continue
-                else:
-                    return False
-
-            if v == sargeparse.eval_true:  # Property evaluates to True
-                if argument.get(k, False):
-                    continue
-                else:
-                    return False
-
-            if v == sargeparse.eval_false:  # Property evaluates to False
-                if not argument.get(k, True):
-                    continue
-                else:
-                    return False
-
-            # Standard case, property in argument equals some value
-            if k in argument and argument[k] == v:  # TODO: verify this isnt flaky
-                continue
-            else:
-                return False
-
-        return True
-
-    def _get_arguments(self, **schema):
-        '''Return arguments that match a schema (see _check_argument_properties)'''
-
-        for argument in self.argument_definitions:
-            if self._check_argument_properties(argument, **schema):
-                yield argument
-
-    @staticmethod
-    def _pop_elements_from_dicts(dicts, *key_list):
-        '''Return a copy of a dict without the elements from key_list'''
-
-        for dictionary in dicts:
-            dictionary = dictionary.copy()
-
-            for key in key_list:
-                dictionary.pop(key, None)
-
-            yield dictionary
+        self._.arguments['cli'].clear()
+        self._.arguments['cli'].update(parsed_args.__dict__)
 
     def _add_help_subcommand_definition(self, parser):
         definition = {
@@ -430,6 +277,200 @@ class Parser:
         self._preprocess_subcommand_ap_kwargs(definition)
         self._add_subcommands(parser, definition)
 
+    def _set_arg_default_dict_from_cli_dict(self):
+        for k, v in list(self._.arguments['cli'].items()):
+            if v == sargeparse.unset:
+                self._.arguments['cli'].pop(k)
+
+                if self.argument_parser_kwargs['argument_default'] == sargeparse.suppress:
+                    continue
+
+                self._.arguments['arg_default'][k] = self.argument_parser_kwargs['argument_default']
+
+    # ------ Additional argument sources' methods ------
+    def _get_argument_and_subcommand_definitions(self, definition=None):
+        if not definition:
+            argument_definitions = self.argument_definitions
+            subcommand_definitions = self.subcommand_definitions
+        else:
+            argument_definitions = definition.get('arguments', [])
+            subcommand_definitions = definition.get('subcommand_definitions', [])
+
+        return argument_definitions, subcommand_definitions
+
+    def _parse_envvars_and_defaults(self, definition=None):
+        argument_definitions, subcommand_definitions = self._get_argument_and_subcommand_definitions(definition)
+
+        for argument_definition in argument_definitions:
+            dest = self._make_dest_from_argument_names(argument_definition['names'])
+
+            if 'envvar' in argument_definition:
+                envvar = os.environ.get(argument_definition['envvar'], sargeparse.unset)
+                if envvar != sargeparse.unset:
+                    self._.arguments['environment'][dest] = envvar
+                    envvar = argument_definition.get('type', self._same)(envvar)
+                else:
+                    self._.arguments['arg_default'][dest] = self.argument_parser_kwargs['argument_default']
+
+            if 'default' in argument_definition:
+                default = argument_definition['default']
+                self._.arguments['defaults'][dest] = default
+
+        for subcommand_definition in subcommand_definitions:
+            self._parse_envvars_and_defaults(subcommand_definition)
+
+    def _parse_config(self, config, definition=None):
+        argument_definitions, subcommand_definitions = self._get_argument_and_subcommand_definitions(definition)
+
+        for argument_definition in argument_definitions:
+            dest = self._make_dest_from_argument_names(argument_definition['names'])
+
+            if 'config_path' in argument_definition:
+                config_value = config.get_path(argument_definition['config_path'], sargeparse.unset)
+                if config_value != sargeparse.unset:
+                    config_value = argument_definition.get('type', self._same)(config_value)
+                    self._.arguments['configuration'][dest] = config_value
+                else:
+                    self._.arguments['arg_default'][dest] = self.argument_parser_kwargs['argument_default']
+
+        for subcommand_definition in subcommand_definitions:
+            self._parse_config(config, subcommand_definition)
+
+    # ------ Logging helper methods ------
+    def _log_warning_parser_has_positional_arguments_and_subcommands(self):
+        if self._.show_warnings:
+            LOG.warning("Having subcommands and positional arguments simultaneously is probably a bad idea")
+
+    def _log_warning_if_missing(self, dictionary, where, *keys):
+        if self._.show_warnings:
+            msg = "Missing '%s' in %s. Please add something helpful, or set it to None to hide this warning"
+            filtered_keys = [k for k in keys if k not in dictionary]
+
+            for k in filtered_keys:
+                LOG.warning(msg, k, where)
+                dictionary[k] = 'WARNING: MISSING {} MESSAGE'.format(k.upper())
+
+    def _log_warning_if_elements_are_different_from_none(self, dictionary, *keys):
+        if self._.show_warnings:
+            msg = "The default value of '%s' is probably better than: '%s'"
+            filtered_dict = {k: v for k, v in dictionary.items() if k in keys and v is not None}
+
+            for k, v in filtered_dict.items():
+                LOG.warning(msg, k, v)
+
+    # ------ Argument methods ------
+    def _make_dest_from_argument_names(self, names):
+        '''Get the 'dest' parameter based on the argument names'''
+
+        dest = None
+
+        for name in names:
+            if name[0] in self._.prefix_chars and not dest:
+                dest = name[1:]
+
+            if name[0] not in self._.prefix_chars:
+                dest = name
+                break
+
+            if name[0] in self._.prefix_chars and name[0] == name[1]:
+                dest = name[2:]
+                break
+
+        return dest.replace('-', '_')
+
+    def _is_argument_positional(self, definition):
+        '''Return whether or not an argument is 'positional', being 'optional' the alternative'''
+
+        return definition['names'][0][0] not in self._.prefix_chars
+
+    def _get_arguments(self, **schema):
+        '''Return arguments that match a schema (see _check_dict_elements)'''
+
+        for argument in self.argument_definitions:
+            if self._check_dict_elements(argument, **schema):
+                yield argument
+
+    def _group_arguments(self, definition_list):
+        arguments = []
+        mutexes = {}
+        groups = {}
+
+        # Make groups / mutex_groups from plain argument definition list
+        for definition in definition_list:
+            definition = definition.copy()
+            target = arguments
+
+            # Add group to 'arguments' if not there already and point target to it
+            group = definition.pop('group', None)
+            if group:
+                if group not in groups:
+                    groups[group] = {
+                        '_type': 'group',
+                        'title': group,
+                        'description': None,
+                        'arguments': [],
+                    }
+                    description = self.group_descriptions.get(group)
+                    groups[group]['description'] = description
+                    target.append(groups[group])
+
+                target = groups[group]['arguments']
+
+            # Add mutex to 'arguments' if not there already and point target to it
+            mutex = definition.pop('mutex', None)
+            if mutex:
+                if mutex not in mutexes:
+                    mutexes[mutex] = {
+                        '_type': 'mutex',
+                        'required': True,
+                        'arguments': [],
+                    }
+                    target.append(mutexes[mutex])
+
+                target = mutexes[mutex]['arguments']
+
+            # Add argument definition to whatever target is pointing at
+            target.append(definition)
+
+        # Set 'required' to False in mutexes when all of its arguments have 'required': False
+        for mutex in mutexes.values():
+            for argument in mutex['arguments']:
+                if argument.get('required') is not False:
+                    break
+            else:
+                mutex['required'] = False
+
+        yield from arguments
+
+    # ------ Other helper methods ------
+    @staticmethod
+    def _same(arg):
+        return arg
+
+    @staticmethod
+    def _check_dict_elements(dictionary, **schema):
+        '''Return True if the dict satisfies the schema'''
+
+        for k, v in schema.items():
+            if k in dictionary and dictionary[k] == v:
+                continue
+            else:
+                return False
+
+        return True
+
+    @staticmethod
+    def _pop_elements_from_dicts(dicts, *key_list):
+        '''Return a copy of a dict without the elements from key_list'''
+
+        for dictionary in dicts:
+            dictionary = dictionary.copy()
+
+            for key in key_list:
+                dictionary.pop(key, None)
+
+            yield dictionary
+
 
 class _ArgumentParserHelper:
     def __init__(self, parser):
@@ -439,8 +480,37 @@ class _ArgumentParserHelper:
         for definition in definition_list:
             definition = definition.copy()
 
-            names = definition.pop('names')
-            self.parser.add_argument(*names, **definition)
+            argument_type = definition.pop('_type', None)
+            if argument_type == 'group':
+                self._add_group(definition, self.parser)
+            elif argument_type == 'mutex':
+                self._add_mutex(definition, self.parser)
+            else:
+                self._add_argument(definition, self.parser)
+
+    def _add_group(self, definition, dest):
+        arguments = definition.pop('arguments')
+        group = dest.add_argument_group(**definition)
+
+        for argument in arguments:
+            argument_type = argument.pop('_type', None)
+
+            if argument_type == 'mutex':
+                self._add_mutex(argument, group)
+            else:
+                self._add_argument(argument, group)
+
+    def _add_mutex(self, definition, dest):
+        arguments = definition.pop('arguments')
+        mutex = dest.add_mutually_exclusive_group(**definition)
+
+        for argument in arguments:
+            self._add_argument(argument, mutex)
+
+    @staticmethod
+    def _add_argument(definition, dest):
+        names = definition.pop('names')
+        dest.add_argument(*names, **definition)
 
     def get_subparsers(self):
         return self.parser._subparsers._group_actions[0]
@@ -462,15 +532,3 @@ class _ArgumentParserHelper:
 
     def parse_known_args(self, *args, **kwargs):
         return self.parser.parse_known_args(*args, **kwargs)
-
-
-'''
-def add_subcommands_to_description(command):
-    if not command._subparsers:
-        return
-
-    command.description += '\n\n'
-    for action, parser in command._subparsers._group_actions[0].choices.items():
-        usage = parser.format_usage()[7:]
-        command.description += usage
-'''
