@@ -8,9 +8,6 @@ if [ -f .bootstrapped ]; then
     [ -f .python-version ] || . .venv/bin/activate
 
 else
-    # Install git hook
-    ln -f -s ../../script/pre-commit .git/hooks/pre-commit
-
     # Create virtualenv manually if not using pyenv local
     if [ ! -f .python-version ]; then
         rm -rf .venv
