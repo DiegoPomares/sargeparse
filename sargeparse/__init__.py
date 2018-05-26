@@ -1,4 +1,4 @@
-from sargeparse.parser import Parser  # NOQA
+from sargeparse.parser.parser import Parser  # NOQA
 from sargeparse.consts import unset, suppress, remainder  # NOQA
 
 __description__ = "A mildly opinionated argument parsing library based on argparse"
