@@ -307,7 +307,6 @@ class Parser:
 
         # Make groups / mutex_groups from plain argument definition list
         for argument in arguments:
-            # definition = argument.get_definition_without_custom_parameters()
             target = argument_list
 
             # Add group to 'arguments' if not there already and point target to it
@@ -395,8 +394,8 @@ class _ArgumentParserHelper:
 
     @staticmethod
     def _add_argument(argument, dest):
-        definition = argument.get_definition_without_custom_parameters()
-        dest.add_argument(*argument.names, **definition)
+        kwargs = argument.get_kwargs_without_custom_parameters()
+        dest.add_argument(*argument.names, **kwargs)
 
     def get_subparsers(self):
         return self.parser._subparsers._group_actions[0]

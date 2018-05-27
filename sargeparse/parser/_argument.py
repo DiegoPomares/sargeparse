@@ -20,117 +20,118 @@ class Argument:
 
         self.names = None
         self.dest = None
-        self._definition = definition
+        self._add_argument_kwargs = definition
 
-        self._process_definition(for_subcommand=subcommand)
+        self._process_add_argument_kwargs(for_subcommand=subcommand)
+
+    def get_kwargs(self):
+        """Return the add_argument() kwargs"""
+
+        return self._add_argument_kwargs.copy()
+
+    def get_kwargs_without_custom_parameters(self):
+        """Return the add_argument() kwargs removing selected keys"""
+
+        kwargs = self._add_argument_kwargs.copy()
+        for key in self._custom_parameters:
+            kwargs.pop(key, None)
+
+        return kwargs
+
+    def get_value_from_envvar(self, *, default=None):
+        """Return value as read from the environment variable, and apply its type"""
+
+        if 'envvar' not in self._add_argument_kwargs:
+            return default
+
+        envvar = self._add_argument_kwargs['envvar']
+        if envvar not in os.environ:
+            return default
+
+        value = os.environ[envvar]
+        return self._add_argument_kwargs.get('type', self._same)(value)
+
+    def get_default_value(self, *, default=None):
+        """Return default value from add_argument() kwargs"""
+
+        if 'default' not in self._add_argument_kwargs:
+            return default
+
+        return self._add_argument_kwargs['default']
+
+    def get_value_from_config(self, config, *, default=None):
+        """Return value from dict, and apply its type"""
+
+        if 'config_path' not in self._add_argument_kwargs:
+            return default
+
+        config_path = self._add_argument_kwargs['config_path']
+        try:
+            value = self._get_value_from_path(config, config_path)
+        except KeyError:
+            return default
+
+        return self._add_argument_kwargs.get('type', self._same)(value)
+
+    def pop_parameter(self, *args):
+        """Return a specific parameter from the defintion while removing it from it"""
+        return self._add_argument_kwargs.pop(*args)
 
     def is_positional(self):
         """Return whether or not an argument is 'positional', being 'optional' the alternative"""
 
         return self.names[0][0] not in self._prefix_chars
 
-    def get_definition(self):
-        """Return the argument definition"""
-
-        return self._definition.copy()
-
-    def get_definition_without_custom_parameters(self):
-        """Return the argument definition removing selected keys"""
-
-        definition = self._definition.copy()
-        for key in self._custom_parameters:
-            definition.pop(key, None)
-
-        return definition
-
-    def get_value_from_envvar(self, *, default=None):
-        """Return value as read from the environment variable, and apply its type"""
-
-        if 'envvar' not in self._definition:
-            return default
-
-        envvar = self._definition['envvar']
-        if envvar not in os.environ:
-            return default
-
-        value = os.environ[envvar]
-        return self._definition.get('type', self._same)(value)
-
-    def get_default_value(self, *, default=None):
-        """Return default value from the argument definition"""
-
-        if 'default' not in self._definition:
-            return default
-
-        return self._definition['default']
-
-    def get_value_from_config(self, config, *, default=None):
-        """Return value from dict, and apply its type"""
-
-        if 'config_path' not in self._definition:
-            return default
-
-        config_path = self._definition['config_path']
-        try:
-            value = self._get_value_from_path(config, config_path)
-        except KeyError:
-            return default
-
-        return self._definition.get('type', self._same)(value)
-
     def validate_schema(self, schema):
         """Return True if the argument satisfies the schema"""
 
         for k, v in schema.items():
-            if k in self._definition and self._definition[k] == v:
+            if k in self._add_argument_kwargs and self._add_argument_kwargs[k] == v:
                 continue
             else:
                 return False
 
         return True
 
-    def pop_parameter(self, *args):
-        return self._definition.pop(*args)
-
-    def _process_definition(self, for_subcommand):
-        self._process_common_definition()
+    def _process_add_argument_kwargs(self, for_subcommand):
+        self._process_add_argument_kwargs_common()
 
         if for_subcommand:
-            self._process_definition_for_subcommand()
+            self._process_add_argument_kwargs_for_subcommand()
         else:
-            self._process_definition_for_parser()
+            self._process_add_argument_kwargs_for_parser()
 
-    def _process_common_definition(self):
-        self.names = self._definition.pop('names', None)
+    def _process_add_argument_kwargs_common(self):
+        self.names = self._add_argument_kwargs.pop('names', None)
         if not self.names:
             raise TypeError("Argument 'names' missing or invalid")
 
         self.dest = self._make_dest_from_argument_names(self.names)
 
-        if not self._definition.get('help') and self._show_warnings:
+        if not self._add_argument_kwargs.get('help') and self._show_warnings:
             msg = "Missing 'help' in %s. Please add something helpful, or set it to None to hide this warning"
             LOG.warning(msg, self.dest)
-            self._definition['help'] = "WARNING: MISSING HELP MESSAGE"
+            self._add_argument_kwargs['help'] = "WARNING: MISSING HELP MESSAGE"
 
         if self.is_positional():
             # argparse will raise an exception if the argument is positional and 'dest' is set
-            if 'dest' in self._definition:
+            if 'dest' in self._add_argument_kwargs:
                 msg = "Positional arguments cannot have a 'dest', remove it from the definition: '{}'".format(
-                    self._definition['dest']
+                    self._add_argument_kwargs['dest']
                 )
                 raise TypeError(msg)
 
         else:  # argument is optional
-            self._definition.setdefault('dest', self.dest)
+            self._add_argument_kwargs.setdefault('dest', self.dest)
 
-    def _process_definition_for_parser(self):
-        self._definition.setdefault('global', False)
+    def _process_add_argument_kwargs_for_parser(self):
+        self._add_argument_kwargs.setdefault('global', False)
 
-        if self._definition['global'] and self.is_positional():
+        if self._add_argument_kwargs['global'] and self.is_positional():
             raise TypeError("Positional arguments cannot be 'global': '{}'".format(self.names[0]))
 
-    def _process_definition_for_subcommand(self):
-        if 'global' in self._definition:
+    def _process_add_argument_kwargs_for_subcommand(self):
+        if 'global' in self._add_argument_kwargs:
             raise TypeError("'global' arguments are not available in subcommands")
 
     def _make_dest_from_argument_names(self, names):
