@@ -394,7 +394,7 @@ class _ArgumentParserHelper:
 
     @staticmethod
     def _add_argument(argument, dest):
-        kwargs = argument.get_kwargs_without_custom_parameters()
+        kwargs = argument.get_add_argument_kwargs_without_custom_parameters()
         dest.add_argument(*argument.names, **kwargs)
 
     def get_subparsers(self):
