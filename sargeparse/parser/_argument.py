@@ -2,21 +2,30 @@ import os
 import re
 import logging
 
+import sargeparse.consts
+
 from sargeparse.parser.context_manager import CheckKwargs
 
 LOG = logging.getLogger(__name__)
 
 
 class Argument:
-    _custom_parameters = ['default', 'global', 'envvar', 'config_path']
-
     def __init__(self, definition, **kwargs):
         definition = definition.copy()
 
-        with CheckKwargs(kwargs) as d:
-            subcommand = d.pop('subcommand')
-            self._show_warnings = d.pop('show_warnings')
-            self._prefix_chars = d.pop('prefix_chars')
+        with CheckKwargs(kwargs) as k:
+            self._show_warnings = k.pop('show_warnings')
+            self._prefix_chars = k.pop('prefix_chars')
+            subcommand = k.pop('subcommand')
+
+        self.custom_parameters = {
+            'group': definition.pop('group', None),
+            'mutex_group': definition.pop('mutex_group', None),
+            'global': definition.pop('global', False),
+            'default': definition.pop('default', sargeparse.unset),
+            'envvar': definition.pop('envvar', sargeparse.unset),
+            'config_path': definition.pop('config_path', sargeparse.unset),
+        }
 
         self.names = None
         self.dest = None
@@ -24,22 +33,13 @@ class Argument:
 
         self._process_add_argument_kwargs(for_subcommand=subcommand)
 
-    def get_add_argument_kwargs_without_custom_parameters(self):
-        """Return the add_argument() kwargs removing selected keys"""
-
-        kwargs = self.add_argument_kwargs.copy()
-        for key in self._custom_parameters:
-            kwargs.pop(key, None)
-
-        return kwargs
-
     def get_value_from_envvar(self, *, default=None):
         """Return value as read from the environment variable, and apply its type"""
 
-        if 'envvar' not in self.add_argument_kwargs:
+        if self.custom_parameters['envvar'] == sargeparse.unset:
             return default
 
-        envvar = self.add_argument_kwargs['envvar']
+        envvar = self.custom_parameters['envvar']
         if envvar not in os.environ:
             return default
 
@@ -49,28 +49,24 @@ class Argument:
     def get_default_value(self, *, default=None):
         """Return default value from add_argument() kwargs"""
 
-        if 'default' not in self.add_argument_kwargs:
+        if self.custom_parameters['default'] == sargeparse.unset:
             return default
 
-        return self.add_argument_kwargs['default']
+        return self.custom_parameters['default']
 
     def get_value_from_config(self, config, *, default=None):
         """Return value from dict, and apply its type"""
 
-        if 'config_path' not in self.add_argument_kwargs:
+        if self.custom_parameters['config_path'] == sargeparse.unset:
             return default
 
-        config_path = self.add_argument_kwargs['config_path']
+        config_path = self.custom_parameters['config_path']
         try:
             value = self._get_value_from_path(config, config_path)
         except KeyError:
             return default
 
         return self.add_argument_kwargs.get('type', self._same)(value)
-
-    def pop_parameter(self, *args):
-        """Return a specific parameter from the add_argument() kwargs while removing it"""
-        return self.add_argument_kwargs.pop(*args)
 
     def is_positional(self):
         """Return whether or not an argument is 'positional', being 'optional' the alternative"""
@@ -94,14 +90,14 @@ class Argument:
         if for_subcommand:
             self._process_add_argument_kwargs_for_subcommand()
         else:
-            self._process_add_argument_kwargs_for_parser()
+            self._process_add_argument_kwargs_for_main_command()
 
     def _process_common_add_argument_kwargs(self):
         self.names = self.add_argument_kwargs.pop('names', None)
         if not self.names:
             raise TypeError("Argument 'names' missing or invalid")
 
-        self.dest = self._make_dest_from_argument_names(self.names)
+        self.dest = self._make_dest_from_argument_names()
 
         if not self.add_argument_kwargs.get('help') and self._show_warnings:
             msg = "Missing 'help' in %s. Please add something helpful, or set it to None to hide this warning"
@@ -119,22 +115,20 @@ class Argument:
         else:  # argument is optional
             self.add_argument_kwargs.setdefault('dest', self.dest)
 
-    def _process_add_argument_kwargs_for_parser(self):
-        self.add_argument_kwargs.setdefault('global', False)
-
-        if self.add_argument_kwargs['global'] and self.is_positional():
+    def _process_add_argument_kwargs_for_main_command(self):
+        if self.custom_parameters['global'] and self.is_positional():
             raise TypeError("Positional arguments cannot be 'global': '{}'".format(self.names[0]))
 
     def _process_add_argument_kwargs_for_subcommand(self):
-        if 'global' in self.add_argument_kwargs:
-            raise TypeError("'global' arguments are not available in subcommands")
+        if self.custom_parameters['global']:
+            raise TypeError("Subcommands' arguments cannot be 'global'")
 
-    def _make_dest_from_argument_names(self, names):
+    def _make_dest_from_argument_names(self):
         """Get the 'dest' parameter based on the argument names"""
 
         dest = None
 
-        for name in names:
+        for name in self.names:
             if name[0] in self._prefix_chars and not dest:
                 dest = name[1:]
 

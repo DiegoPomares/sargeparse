@@ -1,84 +1,109 @@
 import sys
-import logging
 import collections
 
 import sargeparse.consts
 
-from sargeparse.custom import ArgumentParser, HelpFormatter
-from sargeparse.parser._argument import Argument
+from sargeparse.parser.context_manager import CheckKwargs
+from sargeparse.custom import ArgumentParser
 
-LOG = logging.getLogger(__name__)
+from sargeparse.parser._parser import Parser
 
 
-class Parser:
+class _BaseMixin:
+    def add_arguments(self, *definitions):
+        self._parser.add_arguments(*definitions)
+
+    def add_subcommand(self, subcommand):
+        if isinstance(subcommand, dict):
+            self._add_subcommand_definition(subcommand)
+        else:
+            self._add_subcommand_object(subcommand)
+
+    def _add_subcommand_definition(self, definition):
+        raise NotImplementedError()
+
+    def _add_subcommand_object(self, subcommand):
+        self._parser.add_subparsers(subcommand._parser)
+
+    def add_subcommands(self, *definitions):
+        for definition in definitions:
+            self.add_subcommand(definition)
+
+    def add_defaults(self, **kwargs):
+        self._parser.add_set_defaults_kwargs(**kwargs)
+
+    def add_group_descriptions(self, **kwargs):
+        self._parser.add_group_descriptions(**kwargs)
+
+
+class SubCommand(_BaseMixin):
+    def __init__(self, definition, **kwargs):
+        definition = definition.copy()
+
+        with CheckKwargs(kwargs) as k:
+            self._show_warnings = k.pop('show_warnings', True)
+
+        self._custom_parameters = {
+            'arguments': definition.pop('arguments', []),
+            'subcommands': definition.pop('subcommands', []),
+        }
+
+        self._parser = Parser(
+            definition,
+            show_warnings=self._show_warnings,
+            subcommand=True,
+        )
+
+        self.add_arguments(*self._custom_parameters['arguments'])
+        self.add_subcommands(*self._custom_parameters['subcommands'])
+
+    def _add_subcommand_definition(self, definition):
+        subcommand = SubCommand(
+            definition,
+            show_warnings=self._show_warnings,
+        )
+        return self._add_subcommand_object(subcommand)
+
+
+class Command(_BaseMixin):
     _default_precedence = ['cli', 'environment', 'configuration', 'defaults']
     _custom_ap_params = ['help_subcommand']
 
     def __init__(self, definition, **kwargs):
         definition = definition.copy()
 
-        self._subcommand = kwargs.pop('_subcommand', False)
-        self._show_warnings = kwargs.pop('show_warnings', True)
-        self._prefix_chars = definition.get('prefix_chars', '-')
+        with CheckKwargs(kwargs) as k:
+            self._show_warnings = k.pop('show_warnings', True)
 
+        self._custom_parameters = {
+            'help_subcommand': definition.pop('help_subcommand', True),
+            'arguments': definition.pop('arguments', []),
+            'subcommands': definition.pop('subcommands', []),
+        }
+
+        self._parser = Parser(
+            definition,
+            show_warnings=self._show_warnings,
+            subcommand=False,
+        )
+        self.add_arguments(*self._custom_parameters['arguments'])
+        self.add_subcommands(*self._custom_parameters['subcommands'])
+
+        # TODO better naming, improve precedence thing
         self._argument_data = None
         self._parsed_data = None
-        self._has_positional_arguments = False
 
-        self.arguments = []
-        self.subcommand_definitions = []
-        self.subparsers_kwargs = {}
-        self.add_arguments(*definition.pop('arguments', []))
-        self.add_subcommands(*definition.pop('subcommands', []))
-        self.config_subparsers(**definition.pop('subparsers', {}))
+        precedence = ['override'] + self._default_precedence + ['arg_default']
+        self._argument_data = {k: {} for k in precedence}
+        self._parsed_data = collections.ChainMap()
+        self.set_precedence()
 
-        self.group_descriptions = definition.pop('group_descriptions', {})
-        self.default_kwargs = definition.pop('defaults', {})
-        self.argument_parser_kwargs = definition
-
-        if not self._subcommand:
-            self.help_subcommand = definition.pop('help_subcommand', True)
-            self._preprocess_ap_kwargs(self.argument_parser_kwargs, subcommand=False)
-
-            precedence = ['override'] + self._default_precedence + ['arg_default']
-            self._argument_data = {k: {} for k in precedence}
-            self._parsed_data = collections.ChainMap()
-            self.set_precedence()
-
-    # ------ User methods ------
-    def add_arguments(self, *definition_list):
-        for definition in definition_list:
-            definition = definition.copy()
-
-            self.arguments.append(Argument(
-                definition,
-                subcommand=self._subcommand,
-                show_warnings=self._show_warnings,
-                prefix_chars=self._prefix_chars,
-            ))
-
-    def add_subcommands(self, *definition_list):
-        for definition in definition_list:
-            definition = definition.copy()
-
-            self._preprocess_ap_kwargs(definition, subcommand=True)
-
-            self.subcommand_definitions.append(definition)
-
-    def config_subparsers(self, **kwargs):
-        self._log_warning_if_elements_are_different_from_none(kwargs, 'prog', 'help')
-
-        kwargs.setdefault('title', 'subcommands')
-        kwargs.setdefault('metavar', 'SUBCOMMAND')
-        kwargs.setdefault('help', None)
-
-        self.subparsers_kwargs = kwargs
-
-    def add_defaults(self, **kwargs):
-        self.default_kwargs.update(kwargs)
-
-    def add_group_descriptions(self, **kwargs):
-        self.group_descriptions.update(kwargs)
+    def _add_subcommand_definition(self, definition):
+        subcommand = SubCommand(
+            definition,
+            show_warnings=self._show_warnings,
+        )
+        return self._add_subcommand_object(subcommand)
 
     def parse(self, argv=None, read_config=None):
         argv = argv or sys.argv[1:]
@@ -106,43 +131,6 @@ class Parser:
 
         precedence = ['override'] + precedence + ['arg_default']
         self._parsed_data.maps = [self._argument_data[k] for k in precedence]
-
-    # ------ ArgumentParser kwargs pre-processors ------
-    def _preprocess_ap_kwargs(self, definition, *, subcommand):
-        self._preprocess_base_ap_kwargs(definition)
-
-        if subcommand:
-            self._preprocess_subcommand_ap_kwargs(definition)
-        else:
-            self._preprocess_parser_ap_kwargs(definition)
-
-    def _preprocess_base_ap_kwargs(self, kwargs):
-        # Change argparse.ArgumentParser defaults
-        kwargs.setdefault('allow_abbrev', False)
-        kwargs.setdefault('formatter_class', HelpFormatter)
-        kwargs.setdefault('argument_default', sargeparse.unset)
-
-        if self._show_warnings and kwargs['allow_abbrev']:
-            LOG.warning("Disabling 'allow_abbrev' is probably better to ensure consistent behavior")
-
-        self._log_warning_if_elements_are_different_from_none(kwargs, 'prog', 'usage')
-
-    def _preprocess_parser_ap_kwargs(self, kwargs):
-        if 'help' in kwargs:
-            raise TypeError("'help' parameter applies only to subcommands")
-
-        self._log_warning_if_missing(kwargs, "Parser", 'description')
-
-    def _preprocess_subcommand_ap_kwargs(self, kwargs):
-        if not kwargs.get('name'):
-            raise TypeError("Subcommand 'name' missing or invalid")
-
-        self._log_warning_if_missing(kwargs, "subcommand '{}'".format(kwargs['name']), 'help')
-
-        kwargs.setdefault('description', kwargs.get('help'))
-
-        if self._has_positional_arguments:
-            self._log_warning_parser_has_positional_arguments_and_subcommands()
 
     # ------ CLI argument parsing methods ------
     def _add_subcommands(self, parser, *definition_list):
@@ -271,85 +259,6 @@ class Parser:
         # TODO classify subcommands
         # for subcommand_definition in subcommand_definitions:
             # self._parse_config(config, subcommand_definition)
-
-    # ------ Logging helper methods ------
-    def _log_warning_parser_has_positional_arguments_and_subcommands(self):
-        if self._show_warnings:
-            LOG.warning("Having subcommands and positional arguments simultaneously is probably a bad idea")
-
-    def _log_warning_if_missing(self, dictionary, where, *keys):
-        if self._show_warnings:
-            msg = "Missing '%s' in %s. Please add something helpful, or set it to None to hide this warning"
-            filtered_keys = [k for k in keys if k not in dictionary]
-
-            for k in filtered_keys:
-                LOG.warning(msg, k, where)
-                dictionary[k] = 'WARNING: MISSING {} MESSAGE'.format(k.upper())
-
-    def _log_warning_if_elements_are_different_from_none(self, dictionary, *keys):
-        if self._show_warnings:
-            msg = "The default value of '%s' is probably better than: '%s'"
-            filtered_dict = {k: v for k, v in dictionary.items() if k in keys and v is not None}
-
-            for k, v in filtered_dict.items():
-                LOG.warning(msg, k, v)
-
-    # ------ Argument methods ------
-    def _compile_argument_list(self, schema=None):
-        schema = schema or {}
-        argument_list = []
-        mutexes = {}
-        groups = {}
-
-        arguments = []
-        for argument in [arg for arg in self.arguments if arg.validate_schema(schema)]:
-            arguments.append(argument)
-
-        # Make groups / mutex_groups from plain argument definition list
-        for argument in arguments:
-            target = argument_list
-
-            # Add group to 'arguments' if not there already and point target to it
-            group = argument.pop_parameter('group', None)
-            if group:
-                if group not in groups:
-                    groups[group] = {
-                        '_type': 'group',
-                        'title': group,
-                        'description': None,
-                        'arguments': [],
-                    }
-                    description = self.group_descriptions.get(group)
-                    groups[group]['description'] = description
-                    target.append(groups[group])
-
-                target = groups[group]['arguments']
-
-            # Add mutex to 'arguments' if not there already and point target to it
-            mutex = argument.pop_parameter('mutex', None)
-            if mutex:
-                if mutex not in mutexes:
-                    mutexes[mutex] = {
-                        '_type': 'mutex',
-                        'required': True,
-                        'arguments': [],
-                    }
-                    target.append(mutexes[mutex])
-
-                target = mutexes[mutex]['arguments']
-
-            # Add argument definition to whatever target is pointing at
-            target.append(argument)
-
-        # Set 'required' to False in mutexes when all of its arguments have 'required': False
-        for mutex in mutexes.values():
-            for argument in mutex['arguments']:
-                if not argument.validate_schema({'required': False}):
-                    break
-            else:
-                mutex['required'] = False
-
-        yield from argument_list
 
 
 class _ArgumentParserHelper:

@@ -4,7 +4,7 @@ class CheckKwargs:
     def __init__(self, d):
         self.d = d
 
-    def __enter__(self):
+    def __enter__(self):  # pylint: disable=invalid-name
         return self.d
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -13,5 +13,5 @@ class CheckKwargs:
 
         if self.d:
             raise RuntimeError("Unrecognized arguments: '{}'".format(
-                "', '".join(map(str, self.d.keys())))
-            )
+                "', '".join(map(str, self.d.keys()))
+            ))
