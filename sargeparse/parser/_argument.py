@@ -1,6 +1,7 @@
 import os
 import re
 import logging
+import collections
 
 import sargeparse.consts
 
@@ -29,6 +30,8 @@ class Argument:
 
         self.names = None
         self.dest = None
+        self.group = self.custom_parameters['group']
+        self.mutex_group = self.custom_parameters['mutex_group']
         self.add_argument_kwargs = definition
 
         self._process_add_argument_kwargs(for_subcommand=subcommand)
@@ -77,7 +80,8 @@ class Argument:
         """Return True if the argument satisfies the schema"""
 
         for k, v in schema.items():
-            if k in self.add_argument_kwargs and self.add_argument_kwargs[k] == v:
+            definition = collections.ChainMap(self.add_argument_kwargs, self.custom_parameters)
+            if k in definition and definition[k] == v:
                 continue
             else:
                 return False

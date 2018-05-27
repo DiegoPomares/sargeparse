@@ -8,8 +8,14 @@ from sargeparse.custom import ArgumentParser
 
 from sargeparse.parser._parser import Parser
 
+from sargeparse.parser._argument import Argument
+from sargeparse.parser._group import ArgumentGroup, MutualExclussionGroup
+
 
 class _BaseMixin:
+    def __init__(self, definition, **kwargs):
+        raise NotImplementedError()
+
     def add_arguments(self, *definitions):
         self._parser.add_arguments(*definitions)
 
@@ -37,6 +43,7 @@ class _BaseMixin:
 
 
 class SubCommand(_BaseMixin):
+    # pylint: disable=super-init-not-called
     def __init__(self, definition, **kwargs):
         definition = definition.copy()
 
@@ -67,8 +74,8 @@ class SubCommand(_BaseMixin):
 
 class Command(_BaseMixin):
     _default_precedence = ['cli', 'environment', 'configuration', 'defaults']
-    _custom_ap_params = ['help_subcommand']
 
+    # pylint: disable=super-init-not-called
     def __init__(self, definition, **kwargs):
         definition = definition.copy()
 
@@ -86,6 +93,7 @@ class Command(_BaseMixin):
             show_warnings=self._show_warnings,
             subcommand=False,
         )
+        self.help_subcommand = self._custom_parameters['help_subcommand']
         self.add_arguments(*self._custom_parameters['arguments'])
         self.add_subcommands(*self._custom_parameters['subcommands'])
 
@@ -155,21 +163,21 @@ class Command(_BaseMixin):
             subcommand._add_subcommands(subparser, *subcommand.subcommand_definitions)
 
     def _parse_cli_arguments(self, argv):
-        argument_parser_kwargs = self.argument_parser_kwargs.copy()
+        argument_parser_kwargs = self._parser.argument_parser_kwargs.copy()
         argument_parser_kwargs['argument_default'] = sargeparse.unset
 
         # Create ArgumentParser instance and initialize
         ap = ArgumentParser(**argument_parser_kwargs)
         parser = _ArgumentParserHelper(ap)
-        parser.set_defaults(**self.default_kwargs)
+        parser.set_defaults(**self._parser.set_defaults_kwargs)
 
         # Add global arguments first
-        global_argument_list = self._compile_argument_list({'global': True})
-        parser.add_arguments(*global_argument_list)
+        global_arguments = self._parser.compile_argument_list({'global': True})
+        parser.add_arguments(*global_arguments)
 
         # Replace help subcommand by --help at the end, makes it possible to use:
         # command help, command help subcommand, command help subcommand subsubcommand...
-        if self.subcommand_definitions and self.help_subcommand and argv and argv[0] == 'help':
+        if self._parser.subparsers and self.help_subcommand and argv and argv[0] == 'help':
             argv.pop(0)
             argv.append('--help')
 
@@ -179,13 +187,13 @@ class Command(_BaseMixin):
             parsed_args, rest = parser.parse_known_args(rest)
 
         # Add the rest of arguments
-        argument_list = self._compile_argument_list({'global': False})
-        parser.add_arguments(*argument_list)
+        arguments = self._parser.compile_argument_list({'global': False})
+        parser.add_arguments(*arguments)
 
-        # Add subcommands
-        self._add_subcommands(parser, *self.subcommand_definitions)
-        if self.subcommand_definitions and self.help_subcommand:
-            self._add_help_subcommand_definition(parser)
+        # Add subcommands TODO
+        #self._add_subcommands(parser, *self.subcommand_definitions)
+        #if self.subcommand_definitions and self.help_subcommand:
+        #    self._add_help_subcommand_definition(parser)
 
         # TODO
         # for command in commands.values():
@@ -265,46 +273,47 @@ class _ArgumentParserHelper:
     def __init__(self, parser):
         self.parser = parser
 
-    def add_arguments(self, *definition_list):
-        for definition in definition_list:
-            # FIXME
-            if isinstance(definition, Argument):
-                self._add_argument(definition, self.parser)
-                continue
+    def add_arguments(self, *objs):
+        for obj in objs:
+            if isinstance(obj, ArgumentGroup):
+                self._add_argument_group(obj, dest=self.parser)
 
-            definition = definition.copy()
+            elif isinstance(obj, MutualExclussionGroup):
+                self._add_mutex_group(obj, dest=self.parser)
 
-            argument_type = definition.pop('_type', None)
-            if argument_type == 'group':
-                self._add_group(definition, self.parser)
-            elif argument_type == 'mutex':
-                self._add_mutex(definition, self.parser)
+            elif isinstance(obj, Argument):
+                self._add_argument(obj, dest=self.parser)
+
             else:
-                self._add_argument(definition, self.parser)
+                raise RuntimeError()
 
-    def _add_group(self, obj, dest):
-        arguments = obj.pop('arguments')
-        group = dest.add_argument_group(**obj)
+    def _add_argument_group(self, argument_group, *, dest):
+        group = dest.add_argument_group(
+            title=argument_group.title,
+            description=argument_group.description,
+        )
 
-        # FIXME
-        for argument in arguments:
-            if not isinstance(argument, Argument):  # TODO change this eventually by mutex class
-                argument.pop('_type', None)
-                self._add_mutex(argument, group)
-            else:
-                self._add_argument(argument, group)
+        for obj in argument_group.arguments:
+            if isinstance(obj, MutualExclussionGroup):
+                self._add_mutex_group(obj, dest=group)
 
-    def _add_mutex(self, obj, dest):
-        arguments = obj.pop('arguments')
-        mutex = dest.add_mutually_exclusive_group(**obj)
+            elif isinstance(obj, Argument):
+                self._add_argument(obj, dest=group)
 
-        for argument in arguments:
-            self._add_argument(argument, mutex)
+    def _add_mutex_group(self, mutex_group, *, dest):
+        group = dest.add_mutually_exclusive_group(
+            required=mutex_group.is_required(),
+        )
+
+        for argument in mutex_group.arguments:
+            self._add_argument(argument, dest=group)
 
     @staticmethod
-    def _add_argument(argument, dest):
-        kwargs = argument.get_add_argument_kwargs_without_custom_parameters()
-        dest.add_argument(*argument.names, **kwargs)
+    def _add_argument(argument, *, dest):
+        dest.add_argument(
+            *argument.names,
+            **argument.add_argument_kwargs,
+        )
 
     def get_subparsers(self):
         return self.parser._subparsers._group_actions[0]

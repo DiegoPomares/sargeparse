@@ -31,8 +31,9 @@ class Parser:
 
         self._prefix_chars = definition.get('prefix_chars', '-')
         self._has_positional_arguments = False
-        self.name = None
 
+        self.name = None
+        self.set_defaults_kwargs = self.custom_parameters['defaults']
         self.argument_parser_kwargs = definition
 
         self._process_argument_parser_kwargs()
@@ -155,7 +156,7 @@ class Parser:
                     )
                     target.append(groups[group])
 
-                target = groups[group]['arguments']
+                target = groups[group].arguments
 
             mutex = argument.mutex_group
             if mutex:
@@ -164,7 +165,7 @@ class Parser:
                     mutexes[mutex] = MutualExclussionGroup()
                     target.append(mutexes[mutex])
 
-                target = mutexes[mutex]['arguments']
+                target = mutexes[mutex].arguments
 
             # Add argument definition to whatever target is pointing at
             target.append(argument)
