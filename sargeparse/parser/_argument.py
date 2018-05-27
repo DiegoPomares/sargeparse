@@ -34,16 +34,14 @@ class Argument:
 
         return self._definition.copy()
 
-    def validate_schema(self, schema):
-        """Return True if the argument satisfies the schema"""
+    def get_definition_without_custom_parameters(self):
+        """Return the argument definition removing selected keys"""
 
-        for k, v in schema.items():
-            if k in self._definition and self._definition[k] == v:
-                continue
-            else:
-                return False
+        definition = self._definition.copy()
+        for key in self._custom_parameters:
+            definition.pop(key, None)
 
-        return True
+        return definition
 
     def get_value_from_envvar(self, *, default=None):
         """Return value as read from the environment variable, and apply its type"""
@@ -80,14 +78,19 @@ class Argument:
 
         return self._definition.get('type', self._same)(value)
 
-    def get_definition_without_custom_parameters(self):
-        """Return the argument definition removing selected keys"""
+    def validate_schema(self, schema):
+        """Return True if the argument satisfies the schema"""
 
-        definition = self._definition.copy()
-        for key in self._custom_parameters:
-            definition.pop(key, None)
+        for k, v in schema.items():
+            if k in self._definition and self._definition[k] == v:
+                continue
+            else:
+                return False
 
-        return definition
+        return True
+
+    def pop_parameter(self, *args):
+        return self._definition.pop(*args)
 
     def _process_definition(self, for_subcommand):
         self._process_common_definition()
@@ -119,9 +122,6 @@ class Argument:
 
         else:  # argument is optional
             self._definition.setdefault('dest', self.dest)
-
-    def pop_parameter(self, *args):
-        return self._definition.pop(*args)
 
     def _process_definition_for_parser(self):
         self._definition.setdefault('global', False)
@@ -175,4 +175,5 @@ class Argument:
 
     @staticmethod
     def _same(arg):
+        """This is used as the default function for 'type' parameter"""
         return arg
