@@ -327,7 +327,7 @@ class _ArgumentParserWrapper:
     def _add_argument(argument, *, dest):
         dest.add_argument(
             *argument.names,
-            **argument.add_argument_kwargs,
+            **argument.add_argument_kwargs
         )
 
     def add_subcommands(self, *subparsers):
