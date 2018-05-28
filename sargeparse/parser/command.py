@@ -147,7 +147,7 @@ class Command(_BaseCommand):
 
         self._parse_cli_arguments(argv)
         #self._set_arg_default_dict_from_cli_dict()
-        #self._parse_envvars_and_defaults()
+        self._parse_envvars_and_defaults()
 
         # Callback
         if read_config:
@@ -218,7 +218,7 @@ class Command(_BaseCommand):
         return parser
 
     def _set_arg_default_dict_from_cli_dict(self):
-        for k, v in list(self._collected_data['cli'].items()):
+        for k, v in self._collected_data['cli'].items():
             if v == sargeparse.unset:
                 self._collected_data['cli'].pop(k)
 
@@ -227,9 +227,10 @@ class Command(_BaseCommand):
 
                 self._collected_data['arg_default'][k] = self.argument_parser_kwargs['argument_default']
 
-    # ------ Additional argument sources' methods ------
-    def _parse_envvars_and_defaults(self):
-        for argument in self._collected_data:
+    def _parse_envvars_and_defaults(self, parser=None):
+        parser = parser or self._parser
+
+        for argument in parser.arguments:
             dest = argument.dest
 
             envvar = argument.get_value_from_envvar(default=sargeparse.unset)
@@ -240,11 +241,10 @@ class Command(_BaseCommand):
             if default != sargeparse.unset:
                 self._collected_data['defaults'][dest] = default
 
-            self._collected_data['arg_default'][dest] = self.argument_parser_kwargs['argument_default']
+            self._collected_data['arg_default'][dest] = parser.argument_parser_kwargs['argument_default']
 
-        # TODO classify subcommands
-        # for subcommand_definition in subcommand_definitions:
-            # self._parse_envvars_and_defaults(subcommand_definition)
+        for subparser in parser.subparsers:
+            self._parse_envvars_and_defaults(subparser)
 
     def _parse_config(self, config):
 
