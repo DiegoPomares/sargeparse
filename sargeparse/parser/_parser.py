@@ -33,6 +33,7 @@ class Parser:
         self._has_positional_arguments = False
 
         self.name = None
+        self.callback = self.custom_parameters['callback']
         self.set_defaults_kwargs = self.custom_parameters['defaults']
         self.add_subparsers_kwargs = self.custom_parameters['subparser']
         self.argument_parser_kwargs = definition
@@ -63,6 +64,19 @@ class Parser:
 
     def add_set_defaults_kwargs(self, **kwargs):
         self.custom_parameters['defaults'].update(kwargs)
+
+    def callback_mask(self):
+        return '_callback_{}'.format(id(self))
+
+    def default_mask(self):
+        return '_defaults_{}'.format(id(self))
+
+    def get_set_default_kwargs_masked(self):
+        kwargs = {self.default_mask(): self.set_defaults_kwargs}
+        if self.callback:
+            kwargs[self.callback_mask()] = self.callback
+
+        return kwargs
 
     def add_group_descriptions(self, **kwargs):
         self.custom_parameters['group_descriptions'].update(kwargs)

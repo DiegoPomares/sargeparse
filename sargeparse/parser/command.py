@@ -110,7 +110,8 @@ class Command(_BaseCommand):
         self.add_arguments(*self._custom_parameters['arguments'])
         self.add_subcommands(*self._custom_parameters['subcommands'])
 
-        self._collected_data = None
+        self._callbacks = []
+        self._collected_data = {}
         self._data = collections.ChainMap()
         self.set_precedence()
 
@@ -145,12 +146,17 @@ class Command(_BaseCommand):
     def parse(self, argv=None, read_config=None):
         argv = argv or sys.argv[1:]
 
+        self._callbacks = []
+        for d in self._collected_data.values():
+            d.clear()
+
         self._parse_cli_arguments(argv)
         self._remove_unset_from_collected_data_cli()
+        self._move_defaults_from_collected_data_cli()
+        self._setup_callbacks()
         self._parse_envvars_and_defaults()
 
-        # Callback
-        self._collected_data['configuration'].clear()
+        # Config callback
         if read_config:
             config = read_config(self._data)
             self._parse_config(config)
@@ -164,7 +170,7 @@ class Command(_BaseCommand):
         # Create ArgumentParser instance and initialize
         ap = ArgumentParser(**argument_parser_kwargs)
         parser = _ArgumentParserHelper(ap)
-        parser.set_defaults(**self._get_parser().set_defaults_kwargs)
+        parser.set_defaults(**self._get_parser().get_set_default_kwargs_masked())
 
         # Add global arguments first
         global_arguments = self._get_parser().compile_argument_list({'global': True})
@@ -198,7 +204,6 @@ class Command(_BaseCommand):
         parsed_args = parser.parse_args(rest, parsed_args)
 
         # Update _arguments
-        self._collected_data['cli'].clear()
         self._collected_data['cli'].update(parsed_args.__dict__)
 
     def _get_help_subparser(self):
@@ -220,6 +225,29 @@ class Command(_BaseCommand):
         for k, v in list(self._collected_data['cli'].items()):
             if v == sargeparse.unset:
                 self._collected_data['cli'].pop(k)
+
+    def _move_defaults_from_collected_data_cli(self, parser=None):
+        parser = parser or self._parser
+
+        key = parser.default_mask()
+        defaults = self._collected_data['cli'].pop(key, {})
+
+        self._collected_data['defaults'].update(defaults)
+
+        for subparser in parser.subparsers:
+            self._move_defaults_from_collected_data_cli(subparser)
+
+    def _setup_callbacks(self, parser=None):
+        parser = parser or self._parser
+
+        key = parser.callback_mask()
+        callback = self._collected_data['cli'].pop(key, None)
+
+        if callback:
+            self._callbacks.append(callback)
+
+        for subparser in parser.subparsers:
+            self._setup_callbacks(subparser)
 
     def _parse_envvars_and_defaults(self, parser=None):
         parser = parser or self._parser
@@ -312,7 +340,7 @@ class _ArgumentParserHelper:
                 **subparser.argument_parser_kwargs,
             )
 
-            new_parser.set_defaults(**subparser.set_defaults_kwargs)
+            new_parser.set_defaults(**subparser.get_set_default_kwargs_masked())
 
             arguments = subparser.compile_argument_list()
             new_parser.add_arguments(*arguments)
