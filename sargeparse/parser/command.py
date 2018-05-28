@@ -146,15 +146,14 @@ class Command(_BaseCommand):
         argv = argv or sys.argv[1:]
 
         self._parse_cli_arguments(argv)
-        #self._set_arg_default_dict_from_cli_dict()
+        self._remove_unset_from_collected_data_cli()
         self._parse_envvars_and_defaults()
 
         # Callback
+        self._collected_data['configuration'].clear()
         if read_config:
             config = read_config(self._data)
             self._parse_config(config)
-        else:
-            self._collected_data['configuration'].clear()
 
         return self._data
 
@@ -217,15 +216,10 @@ class Command(_BaseCommand):
 
         return parser
 
-    def _set_arg_default_dict_from_cli_dict(self):
-        for k, v in self._collected_data['cli'].items():
+    def _remove_unset_from_collected_data_cli(self):
+        for k, v in list(self._collected_data['cli'].items()):
             if v == sargeparse.unset:
                 self._collected_data['cli'].pop(k)
-
-                if self.argument_parser_kwargs['argument_default'] == sargeparse.suppress:
-                    continue
-
-                self._collected_data['arg_default'][k] = self.argument_parser_kwargs['argument_default']
 
     def _parse_envvars_and_defaults(self, parser=None):
         parser = parser or self._parser
@@ -246,20 +240,20 @@ class Command(_BaseCommand):
         for subparser in parser.subparsers:
             self._parse_envvars_and_defaults(subparser)
 
-    def _parse_config(self, config):
+    def _parse_config(self, config, parser=None):
+        parser = parser or self._parser
 
-        for argument in self._collected_data:
+        for argument in parser.arguments:
             dest = argument.dest
 
             config_value = argument.get_value_from_config(config, default=sargeparse.unset)
             if config_value != sargeparse.unset:
                 self._collected_data['configuration'][dest] = config_value
 
-            self._collected_data['arg_default'][dest] = self.argument_parser_kwargs['argument_default']
+            self._collected_data['arg_default'][dest] = parser.argument_parser_kwargs['argument_default']
 
-        # TODO classify subcommands
-        # for subcommand_definition in subcommand_definitions:
-            # self._parse_config(config, subcommand_definition)
+        for subparser in parser.subparsers:
+            self._parse_config(config, subparser)
 
 
 class _ArgumentParserHelper:
