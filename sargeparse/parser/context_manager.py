@@ -5,9 +5,9 @@ class CheckKwargs:
         self.d = d
 
     def __enter__(self):  # pylint: disable=invalid-name
-        return self.d
+        pass
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type, exc_value, traceback):  # pylint: disable=invalid-name
         if exc_type == KeyError:
             raise KeyError("Key '{}' not in kwargs".format(exc_value))
 

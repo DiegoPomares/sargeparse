@@ -14,10 +14,10 @@ class Argument:
     def __init__(self, definition, **kwargs):
         definition = definition.copy()
 
-        with CheckKwargs(kwargs) as k:
-            self._show_warnings = k.pop('show_warnings')
-            self._prefix_chars = k.pop('prefix_chars')
-            subcommand = k.pop('subcommand')
+        with CheckKwargs(kwargs):
+            self._show_warnings = kwargs.pop('show_warnings')
+            self._prefix_chars = kwargs.pop('prefix_chars')
+            subcommand = kwargs.pop('subcommand')
 
         self.custom_parameters = {
             'group': definition.pop('group', None),

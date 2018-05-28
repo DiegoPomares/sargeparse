@@ -15,9 +15,9 @@ class Parser:
     def __init__(self, definition, **kwargs):
         definition = definition.copy()
 
-        with CheckKwargs(kwargs) as k:
-            self.subcommand = k.pop('subcommand')
-            self._show_warnings = k.pop('show_warnings')
+        with CheckKwargs(kwargs):
+            self.subcommand = kwargs.pop('subcommand')
+            self._show_warnings = kwargs.pop('show_warnings')
 
         self.arguments = []
         self.subparsers = []
