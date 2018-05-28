@@ -337,7 +337,7 @@ class _ArgumentParserWrapper:
 
             new_parser = self.add_parser(
                 subparser.name,
-                **subparser.argument_parser_kwargs,
+                **subparser.argument_parser_kwargs
             )
 
             new_parser.set_defaults(**subparser.get_set_default_kwargs_masked())
