@@ -169,7 +169,7 @@ class Command(_BaseCommand):
 
         # Create ArgumentParser instance and initialize
         ap = ArgumentParser(**argument_parser_kwargs)
-        parser = _ArgumentParserHelper(ap)
+        parser = _ArgumentParserWrapper(ap)
         parser.set_defaults(**self._get_parser().get_set_default_kwargs_masked())
 
         # Add global arguments first
@@ -284,7 +284,7 @@ class Command(_BaseCommand):
             self._parse_config(config, subparser)
 
 
-class _ArgumentParserHelper:
+class _ArgumentParserWrapper:
     def __init__(self, parser):
         self.parser = parser
 
@@ -357,7 +357,7 @@ class _ArgumentParserHelper:
     def add_parser(self, name, **kwargs):
         subparsers = self.get_subparsers_obj()
         subparser = subparsers.add_parser(name, **kwargs)
-        return _ArgumentParserHelper(subparser)
+        return _ArgumentParserWrapper(subparser)
 
     def set_defaults(self, **kwargs):
         self.parser.set_defaults(**kwargs)
