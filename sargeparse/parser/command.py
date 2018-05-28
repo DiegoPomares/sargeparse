@@ -12,37 +12,44 @@ from sargeparse.parser._argument import Argument
 from sargeparse.parser._group import ArgumentGroup, MutualExclussionGroup
 
 
-class _BaseMixin:
+class _BaseCommand:
     def __init__(self, definition, **kwargs):
         raise NotImplementedError()
 
+    def _get_parser(self):
+        raise NotImplementedError()
+
+    def _set_parser(self, parser):
+        raise NotImplementedError()
+
     def add_arguments(self, *definitions):
-        self._parser.add_arguments(*definitions)
+        self._get_parser().add_arguments(*definitions)
 
     def add_subcommand(self, subcommand):
         if isinstance(subcommand, dict):
-            self._add_subcommand_definition(subcommand)
-        else:
-            self._add_subcommand_object(subcommand)
+            return self._add_subcommand_definition(subcommand)
+
+        return self._add_subcommand_object(subcommand)
 
     def _add_subcommand_definition(self, definition):
         raise NotImplementedError()
 
     def _add_subcommand_object(self, subcommand):
-        self._parser.add_subparsers(subcommand._parser)
+        self._get_parser().add_subparsers(subcommand._parser)
+        return subcommand
 
     def add_subcommands(self, *definitions):
         for definition in definitions:
             self.add_subcommand(definition)
 
     def add_defaults(self, **kwargs):
-        self._parser.add_set_defaults_kwargs(**kwargs)
+        self._get_parser().add_set_defaults_kwargs(**kwargs)
 
     def add_group_descriptions(self, **kwargs):
-        self._parser.add_group_descriptions(**kwargs)
+        self._get_parser().add_group_descriptions(**kwargs)
 
 
-class SubCommand(_BaseMixin):
+class SubCommand(_BaseCommand):
     # pylint: disable=super-init-not-called
     def __init__(self, definition, **kwargs):
         definition = definition.copy()
@@ -55,14 +62,20 @@ class SubCommand(_BaseMixin):
             'subcommands': definition.pop('subcommands', []),
         }
 
-        self._parser = Parser(
+        self._set_parser(Parser(
             definition,
             show_warnings=self._show_warnings,
             subcommand=True,
-        )
+        ))
 
         self.add_arguments(*self._custom_parameters['arguments'])
         self.add_subcommands(*self._custom_parameters['subcommands'])
+
+    def _get_parser(self):
+        return self._parser
+
+    def _set_parser(self, parser):
+        self._parser = parser
 
     def _add_subcommand_definition(self, definition):
         subcommand = SubCommand(
@@ -72,7 +85,7 @@ class SubCommand(_BaseMixin):
         return self._add_subcommand_object(subcommand)
 
 
-class Command(_BaseMixin):
+class Command(_BaseCommand):
     _default_precedence = ['cli', 'environment', 'configuration', 'defaults']
 
     # pylint: disable=super-init-not-called
@@ -88,23 +101,24 @@ class Command(_BaseMixin):
             'subcommands': definition.pop('subcommands', []),
         }
 
-        self._parser = Parser(
+        self._set_parser(Parser(
             definition,
             show_warnings=self._show_warnings,
             subcommand=False,
-        )
+        ))
         self.help_subcommand = self._custom_parameters['help_subcommand']
         self.add_arguments(*self._custom_parameters['arguments'])
         self.add_subcommands(*self._custom_parameters['subcommands'])
 
-        # TODO better naming, improve precedence thing
-        self._argument_data = None
-        self._parsed_data = None
-
-        precedence = ['override'] + self._default_precedence + ['arg_default']
-        self._argument_data = {k: {} for k in precedence}
-        self._parsed_data = collections.ChainMap()
+        self._collected_data = None
+        self._data = collections.ChainMap()
         self.set_precedence()
+
+    def _get_parser(self):
+        return self._parser
+
+    def _set_parser(self, parser):
+        self._parser = parser
 
     def _add_subcommand_definition(self, definition):
         subcommand = SubCommand(
@@ -112,22 +126,6 @@ class Command(_BaseMixin):
             show_warnings=self._show_warnings,
         )
         return self._add_subcommand_object(subcommand)
-
-    def parse(self, argv=None, read_config=None):
-        argv = argv or sys.argv[1:]
-
-        self._parse_cli_arguments(argv)
-        self._set_arg_default_dict_from_cli_dict()
-        self._parse_envvars_and_defaults()
-
-        # Callback
-        if read_config:
-            config = read_config(self._parsed_data)
-            self._parse_config(config)
-        else:
-            self._argument_data['configuration'].clear()
-
-        return self._parsed_data
 
     def set_precedence(self, precedence=None):
         precedence = precedence or self._default_precedence
@@ -138,10 +136,29 @@ class Command(_BaseMixin):
             raise TypeError(msg.format(self._default_precedence))
 
         precedence = ['override'] + precedence + ['arg_default']
-        self._parsed_data.maps = [self._argument_data[k] for k in precedence]
 
-    # ------ CLI argument parsing methods ------
-    def _add_subcommands(self, parser, *definition_list):
+        if not self._collected_data:
+            self._collected_data = {k: {} for k in precedence}
+
+        self._data.maps = [self._collected_data[k] for k in precedence]
+
+    def parse(self, argv=None, read_config=None):
+        argv = argv or sys.argv[1:]
+
+        self._parse_cli_arguments(argv)
+        #self._set_arg_default_dict_from_cli_dict()
+        #self._parse_envvars_and_defaults()
+
+        # Callback
+        if read_config:
+            config = read_config(self._data)
+            self._parse_config(config)
+        else:
+            self._collected_data['configuration'].clear()
+
+        return self._data
+
+    def _add_subcommands(self, *subcommands):
         for definition in definition_list:
             definition = definition.copy()
 
@@ -163,21 +180,21 @@ class Command(_BaseMixin):
             subcommand._add_subcommands(subparser, *subcommand.subcommand_definitions)
 
     def _parse_cli_arguments(self, argv):
-        argument_parser_kwargs = self._parser.argument_parser_kwargs.copy()
+        argument_parser_kwargs = self._get_parser().argument_parser_kwargs.copy()
         argument_parser_kwargs['argument_default'] = sargeparse.unset
 
         # Create ArgumentParser instance and initialize
         ap = ArgumentParser(**argument_parser_kwargs)
         parser = _ArgumentParserHelper(ap)
-        parser.set_defaults(**self._parser.set_defaults_kwargs)
+        parser.set_defaults(**self._get_parser().set_defaults_kwargs)
 
         # Add global arguments first
-        global_arguments = self._parser.compile_argument_list({'global': True})
+        global_arguments = self._get_parser().compile_argument_list({'global': True})
         parser.add_arguments(*global_arguments)
 
         # Replace help subcommand by --help at the end, makes it possible to use:
         # command help, command help subcommand, command help subcommand subsubcommand...
-        if self._parser.subparsers and self.help_subcommand and argv and argv[0] == 'help':
+        if self._get_parser().subparsers and self.help_subcommand and argv and argv[0] == 'help':
             argv.pop(0)
             argv.append('--help')
 
@@ -187,11 +204,11 @@ class Command(_BaseMixin):
             parsed_args, rest = parser.parse_known_args(rest)
 
         # Add the rest of arguments
-        arguments = self._parser.compile_argument_list({'global': False})
+        arguments = self._get_parser().compile_argument_list({'global': False})
         parser.add_arguments(*arguments)
 
         # Add subcommands TODO
-        #self._add_subcommands(parser, *self.subcommand_definitions)
+        parser.add_subcommands(*self._get_parser().subparsers)
         #if self.subcommand_definitions and self.help_subcommand:
         #    self._add_help_subcommand_definition(parser)
 
@@ -203,8 +220,8 @@ class Command(_BaseMixin):
         parsed_args = parser.parse_args(rest, parsed_args)
 
         # Update _arguments
-        self._argument_data['cli'].clear()
-        self._argument_data['cli'].update(parsed_args.__dict__)
+        self._collected_data['cli'].clear()
+        self._collected_data['cli'].update(parsed_args.__dict__)
 
     def _add_help_subcommand_definition(self, parser):
         definition = {
@@ -225,29 +242,29 @@ class Command(_BaseMixin):
         self._add_subcommands(parser, definition)
 
     def _set_arg_default_dict_from_cli_dict(self):
-        for k, v in list(self._argument_data['cli'].items()):
+        for k, v in list(self._collected_data['cli'].items()):
             if v == sargeparse.unset:
-                self._argument_data['cli'].pop(k)
+                self._collected_data['cli'].pop(k)
 
                 if self.argument_parser_kwargs['argument_default'] == sargeparse.suppress:
                     continue
 
-                self._argument_data['arg_default'][k] = self.argument_parser_kwargs['argument_default']
+                self._collected_data['arg_default'][k] = self.argument_parser_kwargs['argument_default']
 
     # ------ Additional argument sources' methods ------
     def _parse_envvars_and_defaults(self):
-        for argument in self._argument_data:
+        for argument in self._collected_data:
             dest = argument.dest
 
             envvar = argument.get_value_from_envvar(default=sargeparse.unset)
             if envvar != sargeparse.unset:
-                self._argument_data['environment'][dest] = envvar
+                self._collected_data['environment'][dest] = envvar
 
             default = argument.get_default_value(default=sargeparse.unset)
             if default != sargeparse.unset:
-                self._argument_data['defaults'][dest] = default
+                self._collected_data['defaults'][dest] = default
 
-            self._argument_data['arg_default'][dest] = self.argument_parser_kwargs['argument_default']
+            self._collected_data['arg_default'][dest] = self.argument_parser_kwargs['argument_default']
 
         # TODO classify subcommands
         # for subcommand_definition in subcommand_definitions:
@@ -255,14 +272,14 @@ class Command(_BaseMixin):
 
     def _parse_config(self, config):
 
-        for argument in self._argument_data:
+        for argument in self._collected_data:
             dest = argument.dest
 
             config_value = argument.get_value_from_config(config, default=sargeparse.unset)
             if config_value != sargeparse.unset:
-                self._argument_data['configuration'][dest] = config_value
+                self._collected_data['configuration'][dest] = config_value
 
-            self._argument_data['arg_default'][dest] = self.argument_parser_kwargs['argument_default']
+            self._collected_data['arg_default'][dest] = self.argument_parser_kwargs['argument_default']
 
         # TODO classify subcommands
         # for subcommand_definition in subcommand_definitions:
@@ -315,15 +332,32 @@ class _ArgumentParserHelper:
             **argument.add_argument_kwargs,
         )
 
-    def get_subparsers(self):
+    def add_subcommands(self, *subparsers):
+        for subparser in subparsers:
+
+            self.setup_subparsers(**subparser.add_subparsers_kwargs)
+
+            new_parser = self.add_parser(
+                subparser.name,
+                **subparser.argument_parser_kwargs,
+            )
+
+            new_parser.set_defaults(**subparser.set_defaults_kwargs)
+
+            arguments = subparser.compile_argument_list()
+            new_parser.add_arguments(*arguments)
+
+            new_parser.add_subcommands(*subparser.subparsers)
+
+    def get_subparsers_obj(self):
         return self.parser._subparsers._group_actions[0]
 
-    def set_subparsers(self, **kwargs):
+    def setup_subparsers(self, **kwargs):
         if not self.parser._subparsers:
             self.parser.add_subparsers(**kwargs)
 
     def add_parser(self, name, **kwargs):
-        subparsers = self.get_subparsers()
+        subparsers = self.get_subparsers_obj()
         subparser = subparsers.add_parser(name, **kwargs)
         return _ArgumentParserHelper(subparser)
 

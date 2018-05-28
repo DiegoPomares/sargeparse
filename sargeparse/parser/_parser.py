@@ -34,6 +34,7 @@ class Parser:
 
         self.name = None
         self.set_defaults_kwargs = self.custom_parameters['defaults']
+        self.add_subparsers_kwargs = self.custom_parameters['subparser']
         self.argument_parser_kwargs = definition
 
         self._process_argument_parser_kwargs()
