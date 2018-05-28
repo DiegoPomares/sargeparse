@@ -158,27 +158,6 @@ class Command(_BaseCommand):
 
         return self._data
 
-    def _add_subcommands(self, *subcommands):
-        for definition in definition_list:
-            definition = definition.copy()
-
-            name = definition.pop('name')
-            subcommand = Parser(
-                definition,
-                show_warnings=self._show_warnings,
-                _subcommand=True,
-            )
-
-            # Create ArgumentParser instance and initialize
-            parser.set_subparsers(**self.subparsers_kwargs)
-            subparser = parser.add_parser(name, **subcommand.argument_parser_kwargs)
-            subparser.set_defaults(**subcommand.default_kwargs)
-
-            argument_list = subcommand._compile_argument_list()
-            parser.add_arguments(*argument_list)
-
-            subcommand._add_subcommands(subparser, *subcommand.subcommand_definitions)
-
     def _parse_cli_arguments(self, argv):
         argument_parser_kwargs = self._get_parser().argument_parser_kwargs.copy()
         argument_parser_kwargs['argument_default'] = sargeparse.unset
@@ -209,8 +188,8 @@ class Command(_BaseCommand):
 
         # Add subcommands TODO
         parser.add_subcommands(*self._get_parser().subparsers)
-        #if self.subcommand_definitions and self.help_subcommand:
-        #    self._add_help_subcommand_definition(parser)
+        if self._get_parser().subparsers and self.help_subcommand:
+            parser.add_subcommands(self._get_help_subparser())
 
         # TODO
         # for command in commands.values():
@@ -223,23 +202,20 @@ class Command(_BaseCommand):
         self._collected_data['cli'].clear()
         self._collected_data['cli'].update(parsed_args.__dict__)
 
-    def _add_help_subcommand_definition(self, parser):
-        definition = {
-            'name': 'help',
-            'help': "show this message",
-            'arguments': [
-                {
-                    'names': ['_help'],
-                    'nargs': '?',
-                    'metavar': '{} ...'.format(self.subparsers_kwargs['title'].upper()),
-                    'help': None,
-                },
-            ],
-        }
+    def _get_help_subparser(self):
+        parser = Parser(
+            {'name': 'help', 'help': "show this message"},
+            show_warnings=self._show_warnings,
+            subcommand=True,
+        )
+        parser.add_arguments({
+            'names': ['_help'],
+            'nargs': '?',
+            'metavar': '{} ...'.format(self._get_parser().add_subparsers_kwargs['title'].upper()),
+            'help': None,
+        })
 
-        self._preprocess_base_ap_kwargs(definition)
-        self._preprocess_subcommand_ap_kwargs(definition)
-        self._add_subcommands(parser, definition)
+        return parser
 
     def _set_arg_default_dict_from_cli_dict(self):
         for k, v in list(self._collected_data['cli'].items()):
