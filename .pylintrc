@@ -56,10 +56,10 @@ disable=
     duplicate-code,
     missing-docstring,
     pointless-string-statement,
-    protected-access
+    protected-access,
+    too-few-public-methods,
     # import-star-module-level,
     # invalid-name,
-    # too-few-public-methods,
 
 [REPORTS]
 
@@ -169,7 +169,7 @@ expected-line-ending-format=
 bad-functions=map,filter,input
 
 # Good variable names which should always be accepted, separated by a comma
-good-names=f,i,j,k,v,ex,Run,_
+good-names=i,j,k,v,d,f,ex,Run,_
 
 # Bad variable names which should always be refused, separated by a comma
 bad-names=foo,bar,baz,toto,tutu,tata
