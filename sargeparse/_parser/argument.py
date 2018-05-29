@@ -5,7 +5,7 @@ import collections
 
 import sargeparse.consts
 
-from sargeparse.parser.context_manager import CheckKwargs
+from sargeparse.context_manager import CheckKwargs
 
 LOG = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ class Argument:
         with CheckKwargs(kwargs):
             self._show_warnings = kwargs.pop('show_warnings')
             self._prefix_chars = kwargs.pop('prefix_chars')
-            subcommand = kwargs.pop('subcommand')
+            main_command = kwargs.pop('main_command')
 
         self.custom_parameters = {
             'group': definition.pop('group', None),
@@ -34,7 +34,7 @@ class Argument:
         self.mutex_group = self.custom_parameters['mutex_group']
         self.add_argument_kwargs = definition
 
-        self._process_add_argument_kwargs(for_subcommand=subcommand)
+        self._process_add_argument_kwargs(main_command=main_command)
 
     def get_value_from_envvar(self, *, default=None):
         """Return value as read from the environment variable, and apply its type"""
@@ -88,13 +88,13 @@ class Argument:
 
         return True
 
-    def _process_add_argument_kwargs(self, for_subcommand):
+    def _process_add_argument_kwargs(self, main_command):
         self._process_common_add_argument_kwargs()
 
-        if for_subcommand:
-            self._process_add_argument_kwargs_for_subcommand()
-        else:
+        if main_command:
             self._process_add_argument_kwargs_for_main_command()
+        else:
+            self._process_add_argument_kwargs_for_subcommand()
 
     def _process_common_add_argument_kwargs(self):
         self.names = self.add_argument_kwargs.pop('names', None)

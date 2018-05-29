@@ -9,7 +9,7 @@ class CheckKwargs:
 
     def __exit__(self, exc_type, exc_value, traceback):  # pylint: disable=invalid-name
         if exc_type == KeyError:
-            raise KeyError("Key '{}' not in kwargs".format(exc_value))
+            raise KeyError("Key {} not in kwargs".format(exc_value))
 
         if self.d:
             raise RuntimeError("Unrecognized arguments: '{}'".format(

@@ -3,27 +3,58 @@ import collections
 
 import sargeparse.consts
 
-from sargeparse.parser.context_manager import CheckKwargs
+from sargeparse.context_manager import CheckKwargs
 from sargeparse.custom import ArgumentParser
 
-from sargeparse.parser._parser import Parser
+from sargeparse._parser import (
+    Argument,
+    ArgumentGroup,
+    MutualExclussionGroup,
+    Parser,
+)
 
-from sargeparse.parser._argument import Argument
-from sargeparse.parser._group import ArgumentGroup, MutualExclussionGroup
 
-
-class _BaseCommand:
+class SubCommand:
     def __init__(self, definition, **kwargs):
-        raise NotImplementedError()
+        definition = definition.copy()
 
-    def _get_parser(self):
-        raise NotImplementedError()
+        with CheckKwargs(kwargs):
+            self._show_warnings = kwargs.pop('show_warnings', True)
+            self._main_command = kwargs.pop('_main_command', False)
 
-    def _set_parser(self, parser):
-        raise NotImplementedError()
+        self._custom_parameters = {
+            'arguments': definition.pop('arguments', []),
+            'subcommands': definition.pop('subcommands', []),
+        }
+
+        self._parser = Parser(
+            definition,
+            show_warnings=self._show_warnings,
+            main_command=self._main_command,
+        )
+
+        self.add_arguments(*self._custom_parameters['arguments'])
+        self.add_subcommands(*self._custom_parameters['subcommands'])
+
+    def _add_subcommand_definition(self, definition):
+        subcommand = SubCommand(
+            definition,
+            show_warnings=self._show_warnings,
+        )
+        return self._add_subcommand_object(subcommand)
+
+    def _add_subcommand_object(self, subcommand):
+        self._parser.add_subparsers(subcommand._parser)
+        return subcommand
 
     def add_arguments(self, *definitions):
-        self._get_parser().add_arguments(*definitions)
+        self._parser.add_arguments(*definitions)
+
+    def add_defaults(self, **kwargs):
+        self._parser.add_set_defaults_kwargs(**kwargs)
+
+    def add_group_descriptions(self, **kwargs):
+        self._parser.add_group_descriptions(**kwargs)
 
     def add_subcommand(self, subcommand):
         if isinstance(subcommand, dict):
@@ -31,102 +62,30 @@ class _BaseCommand:
 
         return self._add_subcommand_object(subcommand)
 
-    def _add_subcommand_definition(self, definition):
-        raise NotImplementedError()
-
-    def _add_subcommand_object(self, subcommand):
-        self._get_parser().add_subparsers(subcommand._parser)
-        return subcommand
-
-    def add_subcommands(self, *definitions):
-        for definition in definitions:
-            self.add_subcommand(definition)
-
-    def add_defaults(self, **kwargs):
-        self._get_parser().add_set_defaults_kwargs(**kwargs)
-
-    def add_group_descriptions(self, **kwargs):
-        self._get_parser().add_group_descriptions(**kwargs)
+    def add_subcommands(self, *subcommands):
+        for subcommand in subcommands:
+            self.add_subcommand(subcommand)
 
 
-class SubCommand(_BaseCommand):
-    # pylint: disable=super-init-not-called
-    def __init__(self, definition, **kwargs):
-        definition = definition.copy()
-
-        with CheckKwargs(kwargs):
-            self._show_warnings = kwargs.pop('show_warnings', True)
-
-        self._custom_parameters = {
-            'arguments': definition.pop('arguments', []),
-            'subcommands': definition.pop('subcommands', []),
-        }
-
-        self._set_parser(Parser(
-            definition,
-            show_warnings=self._show_warnings,
-            subcommand=True,
-        ))
-
-        self.add_arguments(*self._custom_parameters['arguments'])
-        self.add_subcommands(*self._custom_parameters['subcommands'])
-
-    def _get_parser(self):
-        return self._parser
-
-    def _set_parser(self, parser):
-        self._parser = parser
-
-    def _add_subcommand_definition(self, definition):
-        subcommand = SubCommand(
-            definition,
-            show_warnings=self._show_warnings,
-        )
-        return self._add_subcommand_object(subcommand)
-
-
-class Command(_BaseCommand):
+class Sarge(SubCommand):
     _default_precedence = ['cli', 'environment', 'configuration', 'defaults']
 
-    # pylint: disable=super-init-not-called
     def __init__(self, definition, **kwargs):
         definition = definition.copy()
-
-        with CheckKwargs(kwargs):
-            self._show_warnings = kwargs.pop('show_warnings', True)
 
         self._custom_parameters = {
             'help_subcommand': definition.pop('help_subcommand', True),
-            'arguments': definition.pop('arguments', []),
-            'subcommands': definition.pop('subcommands', []),
         }
 
-        self._set_parser(Parser(
-            definition,
-            show_warnings=self._show_warnings,
-            subcommand=False,
-        ))
         self.help_subcommand = self._custom_parameters['help_subcommand']
-        self.add_arguments(*self._custom_parameters['arguments'])
-        self.add_subcommands(*self._custom_parameters['subcommands'])
 
         self._callbacks = []
         self._collected_data = {}
         self._data = collections.ChainMap()
         self.set_precedence()
 
-    def _get_parser(self):
-        return self._parser
-
-    def _set_parser(self, parser):
-        self._parser = parser
-
-    def _add_subcommand_definition(self, definition):
-        subcommand = SubCommand(
-            definition,
-            show_warnings=self._show_warnings,
-        )
-        return self._add_subcommand_object(subcommand)
+        kwargs['_main_command'] = True
+        super().__init__(definition, **kwargs)
 
     def set_precedence(self, precedence=None):
         precedence = precedence or self._default_precedence
@@ -164,21 +123,21 @@ class Command(_BaseCommand):
         return self._data
 
     def _parse_cli_arguments(self, argv):
-        argument_parser_kwargs = self._get_parser().argument_parser_kwargs.copy()
+        argument_parser_kwargs = self._parser.argument_parser_kwargs.copy()
         argument_parser_kwargs['argument_default'] = sargeparse.unset
 
         # Create ArgumentParser instance and initialize
         ap = ArgumentParser(**argument_parser_kwargs)
         parser = _ArgumentParserWrapper(ap)
-        parser.set_defaults(**self._get_parser().get_set_default_kwargs_masked())
+        parser.set_defaults(**self._parser.get_set_default_kwargs_masked())
 
         # Add global arguments first
-        global_arguments = self._get_parser().compile_argument_list({'global': True})
+        global_arguments = self._parser.compile_argument_list({'global': True})
         parser.add_arguments(*global_arguments)
 
         # Replace help subcommand by --help at the end, makes it possible to use:
         # command help, command help subcommand, command help subcommand subsubcommand...
-        if self._get_parser().subparsers and self.help_subcommand and argv and argv[0] == 'help':
+        if self._parser.subparsers and self.help_subcommand and argv and argv[0] == 'help':
             argv.pop(0)
             argv.append('--help')
 
@@ -188,12 +147,12 @@ class Command(_BaseCommand):
             parsed_args, rest = parser.parse_known_args(rest)
 
         # Add the rest of arguments
-        arguments = self._get_parser().compile_argument_list({'global': False})
+        arguments = self._parser.compile_argument_list({'global': False})
         parser.add_arguments(*arguments)
 
         # Add subcommands TODO
-        parser.add_subcommands(*self._get_parser().subparsers)
-        if self._get_parser().subparsers and self.help_subcommand:
+        parser.add_subcommands(*self._parser.subparsers)
+        if self._parser.subparsers and self.help_subcommand:
             parser.add_subcommands(self._get_help_subparser())
 
         # TODO
@@ -210,12 +169,12 @@ class Command(_BaseCommand):
         parser = Parser(
             {'name': 'help', 'help': "show this message"},
             show_warnings=self._show_warnings,
-            subcommand=True,
+            main_command=False,
         )
         parser.add_arguments({
             'names': ['_help'],
             'nargs': '?',
-            'metavar': '{} ...'.format(self._get_parser().add_subparsers_kwargs['title'].upper()),
+            'metavar': '{} ...'.format(self._parser.add_subparsers_kwargs['title'].upper()),
             'help': None,
         })
 

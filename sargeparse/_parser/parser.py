@@ -2,11 +2,11 @@ import logging
 
 import sargeparse.consts
 
-from sargeparse.parser.context_manager import CheckKwargs
+from sargeparse.context_manager import CheckKwargs
 from sargeparse.custom import HelpFormatter
 
-from sargeparse.parser._argument import Argument
-from sargeparse.parser._group import ArgumentGroup, MutualExclussionGroup
+from sargeparse._parser.argument import Argument
+from sargeparse._parser.group import ArgumentGroup, MutualExclussionGroup
 
 LOG = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ class Parser:
         definition = definition.copy()
 
         with CheckKwargs(kwargs):
-            self.subcommand = kwargs.pop('subcommand')
+            self.main_command = kwargs.pop('main_command')
             self._show_warnings = kwargs.pop('show_warnings')
 
         self.arguments = []
@@ -47,7 +47,7 @@ class Parser:
                 definition,
                 show_warnings=self._show_warnings,
                 prefix_chars=self._prefix_chars,
-                subcommand=self.subcommand,
+                main_command=self.main_command,
             )
             self.arguments.append(argument)
 
@@ -84,10 +84,10 @@ class Parser:
     def _process_argument_parser_kwargs(self):
         self._process_common_argument_parser_kwargs()
 
-        if self.subcommand:
-            self._process_argument_parser_kwargs_for_subcommand()
-        else:
+        if self.main_command:
             self._process_argument_parser_kwargs_for_main_command()
+        else:
+            self._process_argument_parser_kwargs_for_subcommand()
 
     def _process_common_argument_parser_kwargs(self):
         self.argument_parser_kwargs.setdefault('formatter_class', HelpFormatter)
