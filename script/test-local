@@ -7,4 +7,4 @@ cd "$(dirname "$(readlink -f "$0")")/.."
 
 . ./script/bootstrap-local
 
-python setup.py test $@
+python test/run.py $@
