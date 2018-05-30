@@ -98,7 +98,7 @@ class Parser:
         if python_version('<3.5'):  # Unsupported
             self.argument_parser_kwargs.pop('allow_abbrev', None)
 
-        if self._show_warnings and self.argument_parser_kwargs['allow_abbrev']:
+        if self._show_warnings and self.argument_parser_kwargs.get('allow_abbrev'):
             LOG.warning("Disabling 'allow_abbrev' is probably better to ensure consistent behavior")
 
         self._log_warning_if_elements_are_different_from_none(self.argument_parser_kwargs, 'prog', 'usage')
