@@ -11,8 +11,9 @@ import sargeparse as package
 class PyTest(TestCommand):
     user_options = [
         ('no-lint', 'L', "Skip file linting"),
+        ('no-coverage', 'C', "Skip coverage report"),
         ('test-expression=', 'k', 'Only run tests which match the given substring expression'),
-        ('env-file=', 'e', 'environment file to load')
+        ('env-file=', 'e', 'Environment file to load')
     ]
 
     # pylint: disable=attribute-defined-outside-init
@@ -21,18 +22,21 @@ class PyTest(TestCommand):
 
         self.pytest_args = [
             '--verbose',
-            '--cov={}'.format(package.__name__),
-            '--cov-report=term-missing',
-            '--cov-report=xml:reports/coverage.xml',
-            '--cov-report=html:reports/coverage',
         ]
         self.lint_args = [
             '--flake8',
             '--pylint',
             '--pylint-jobs={}'.format(multiprocessing.cpu_count())
         ]
+        self.coverage_args = [
+            '--cov={}'.format(package.__name__),
+            '--cov-report=term-missing',
+            '--cov-report=xml:reports/coverage.xml',
+            '--cov-report=html:reports/coverage',
+        ]
 
         self.no_lint = False
+        self.no_coverage = False
         self.test_expression = False
         self.env_file = None
 
@@ -41,6 +45,9 @@ class PyTest(TestCommand):
 
         if self.no_lint is False:
             self.pytest_args.extend(self.lint_args)
+
+        if self.no_coverage is False:
+            self.pytest_args.extend(self.coverage_args)
 
         if self.test_expression:
             self.pytest_args.extend(['-k', self.test_expression])

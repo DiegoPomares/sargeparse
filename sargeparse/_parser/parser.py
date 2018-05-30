@@ -2,8 +2,9 @@ import logging
 
 import sargeparse.consts
 
-from sargeparse.context_manager import CheckKwargs
+from sargeparse.context_manager import check_kwargs
 from sargeparse.custom import HelpFormatter
+from sargeparse.version import python_version
 
 from sargeparse._parser.argument import Argument
 from sargeparse._parser.group import ArgumentGroup, MutualExclussionGroup
@@ -15,7 +16,7 @@ class Parser:
     def __init__(self, definition, **kwargs):
         definition = definition.copy()
 
-        with CheckKwargs(kwargs):
+        with check_kwargs(kwargs):
             self.main_command = kwargs.pop('main_command')
             self._show_warnings = kwargs.pop('show_warnings')
 
@@ -93,6 +94,9 @@ class Parser:
         self.argument_parser_kwargs.setdefault('formatter_class', HelpFormatter)
         self.argument_parser_kwargs.setdefault('argument_default', sargeparse.unset)
         self.argument_parser_kwargs.setdefault('allow_abbrev', False)
+
+        if python_version('<3.5'):  # Unsupported
+            self.argument_parser_kwargs.pop('allow_abbrev', None)
 
         if self._show_warnings and self.argument_parser_kwargs['allow_abbrev']:
             LOG.warning("Disabling 'allow_abbrev' is probably better to ensure consistent behavior")

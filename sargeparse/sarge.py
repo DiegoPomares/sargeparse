@@ -3,7 +3,7 @@ import collections
 
 import sargeparse.consts
 
-from sargeparse.context_manager import CheckKwargs
+from sargeparse.context_manager import check_kwargs
 from sargeparse.custom import ArgumentParser
 
 from sargeparse._parser import (
@@ -18,7 +18,7 @@ class SubCommand:
     def __init__(self, definition, **kwargs):
         definition = definition.copy()
 
-        with CheckKwargs(kwargs):
+        with check_kwargs(kwargs):
             self._show_warnings = kwargs.pop('show_warnings', True)
             self._main_command = kwargs.pop('_main_command', False)
 
@@ -150,14 +150,12 @@ class Sarge(SubCommand):
         arguments = self._parser.compile_argument_list({'global': False})
         parser.add_arguments(*arguments)
 
-        # Add subcommands TODO
+        # Add subcommands
         parser.add_subcommands(*self._parser.subparsers)
         if self._parser.subparsers and self.help_subcommand:
             parser.add_subcommands(self._get_help_subparser())
 
-        # TODO
-        # for command in commands.values():
-        #    add_subcommands_to_description(command)
+        # TODO subcommand usage in description flag
 
         # Finish parsing args
         parsed_args = parser.parse_args(rest, parsed_args)

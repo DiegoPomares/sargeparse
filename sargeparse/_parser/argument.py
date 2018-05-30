@@ -5,7 +5,7 @@ import collections
 
 import sargeparse.consts
 
-from sargeparse.context_manager import CheckKwargs
+from sargeparse.context_manager import check_kwargs
 
 LOG = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ class Argument:
     def __init__(self, definition, **kwargs):
         definition = definition.copy()
 
-        with CheckKwargs(kwargs):
+        with check_kwargs(kwargs):
             self._show_warnings = kwargs.pop('show_warnings')
             self._prefix_chars = kwargs.pop('prefix_chars')
             main_command = kwargs.pop('main_command')
