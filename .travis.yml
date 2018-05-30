@@ -7,6 +7,10 @@ python:
 
 install: true
 
+branches:
+  only:
+    - master
+
 env:
   global:
     - REPOSITORY_USER=DiegoPomares
