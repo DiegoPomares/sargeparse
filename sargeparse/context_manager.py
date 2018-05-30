@@ -1,13 +1,14 @@
 
+class check_kwargs:
+    # pylint: disable=invalid-name
 
-class CheckKwargs:
     def __init__(self, d):
         self.d = d
 
-    def __enter__(self):  # pylint: disable=invalid-name
+    def __enter__(self):
         pass
 
-    def __exit__(self, exc_type, exc_value, traceback):  # pylint: disable=invalid-name
+    def __exit__(self, exc_type, exc_value, traceback):
         if exc_type == KeyError:
             raise KeyError("Key {} not in kwargs".format(exc_value))
 

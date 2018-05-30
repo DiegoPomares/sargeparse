@@ -5,7 +5,7 @@ import collections
 
 import sargeparse.consts
 
-from sargeparse.context_manager import CheckKwargs
+from sargeparse.context_manager import check_kwargs
 
 LOG = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ class Argument:
     def __init__(self, definition, **kwargs):
         definition = definition.copy()
 
-        with CheckKwargs(kwargs):
+        with check_kwargs(kwargs):
             self._show_warnings = kwargs.pop('show_warnings')
             self._prefix_chars = kwargs.pop('prefix_chars')
             main_command = kwargs.pop('main_command')
@@ -103,7 +103,7 @@ class Argument:
 
         self.dest = self._make_dest_from_argument_names()
 
-        if not self.add_argument_kwargs.get('help') and self._show_warnings:
+        if 'help' not in self.add_argument_kwargs and self._show_warnings:
             msg = "Missing 'help' in %s. Please add something helpful, or set it to None to hide this warning"
             LOG.warning(msg, self.dest)
             self.add_argument_kwargs['help'] = "WARNING: MISSING HELP MESSAGE"
