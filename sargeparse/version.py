@@ -1,6 +1,5 @@
 import re
 import sys
-import ast
 
 
 def python_version(*version_specs):
@@ -21,7 +20,7 @@ def python_version(*version_specs):
         version += int(match.group('mic') or 0)
 
         # pylint: disable=eval-used
-        if not ast.literal_eval("{}{}{}".format(interpreter_version, operator, version)):
+        if not eval("{}{}{}".format(interpreter_version, operator, version)):
             return False
 
     return True
