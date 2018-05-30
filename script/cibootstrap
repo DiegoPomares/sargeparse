@@ -12,5 +12,9 @@ fi
 
 pip install --upgrade pip setuptools wheel virtualenv
 
-# pip install -r requirements/requirements.txt
-pip install -r requirements/test_requirements.txt
+pip install codecov
+
+pip install --requirement requirements/requirements.txt
+pip install --requirement requirements/test_requirements.txt
+
+pip install --editable .
