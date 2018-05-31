@@ -132,3 +132,72 @@ def test_full_ok(caplog):
 
     for param in ['debug', 'x', 'flag']:
         assert "Missing 'help' in {}".format(param) in caplog.text
+
+
+def test_envvar_default_config_same_name_many_subcommands():
+
+    parser = sargeparse.Sarge({})
+
+    parser.add_subcommands({
+        'name': 'suba',
+        'arguments': [
+            {
+                'names': ['--arg1'],
+                'envvar': 'VARA'
+            },
+            {
+                'names': ['--arg2'],
+                'default': '2A'
+            },
+            {
+                'names': ['--arg3'],
+                'config_path': 'confA'
+            },
+        ],
+    }, {
+        'name': 'subb',
+        'arguments': [
+            {
+                'names': ['--arg1'],
+                'envvar': 'VARB'
+            },
+            {
+                'names': ['--arg2'],
+                'default': '2B'
+            },
+            {
+                'names': ['--arg3'],
+                'config_path': 'confB'
+            },
+        ],
+    })
+
+    def get_config(_args):
+        return {
+            'confA': '3A',
+            'confB': '3B',
+        }
+
+    sys.argv = shlex.split('test suba')
+    os.environ['VARA'] = '1A'
+    os.environ['VARB'] = '1B'
+
+    args = parser.parse(read_config=get_config)
+
+    assert args == ChainMap(
+        {},
+        {},
+        {
+            'arg1': '1A',
+        },
+        {
+            'arg3': '3A',
+        },
+        {
+            'arg2': '2A',
+        },
+        {
+            'arg1': sargeparse.unset,
+            'arg2': sargeparse.unset,
+        }
+    )

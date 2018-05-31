@@ -66,16 +66,23 @@ class Parser:
     def add_set_defaults_kwargs(self, **kwargs):
         self.custom_parameters['defaults'].update(kwargs)
 
-    def callback_mask(self):
+    def parser_label(self):
+        return '_parser_{}'.format(id(self))
+
+    def callback_label(self):
         return '_callback_{}'.format(id(self))
 
-    def default_mask(self):
+    def defaults_label(self):
         return '_defaults_{}'.format(id(self))
 
-    def get_set_default_kwargs_masked(self):
-        kwargs = {self.default_mask(): self.set_defaults_kwargs}
+    def get_set_default_kwargs(self):
+        kwargs = {}
+
+        kwargs[self.parser_label()] = True
+        kwargs[self.defaults_label()] = self.set_defaults_kwargs
+
         if self.callback:
-            kwargs[self.callback_mask()] = self.callback
+            kwargs[self.callback_label()] = self.callback
 
         return kwargs
 
