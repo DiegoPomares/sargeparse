@@ -11,8 +11,13 @@ if [ -z "$TRAVIS" ]; then
 fi
 
 mkdir -p reports
-
-python test/run.py $@
-
 cd reports
-codecov
+
+python ../test/run.py -k test/unit/
+codecov -F unit
+
+python ../test/run.py -k test/integration/
+codecov -F integration
+
+python ../test/run.py -k test/acceptance/
+codecov -F acceptance

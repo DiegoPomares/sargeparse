@@ -10,6 +10,7 @@ PACKAGE = 'sargeparse'
 arg_groups = {
     'default': [
         '--verbose',
+        '--confcutdir={}'.format(script_path),
     ],
     'lint': [
         '--flake8',
