@@ -120,6 +120,8 @@ class Sarge(SubCommand):
             config = read_config(self._data)
             self._parse_config(config)
 
+        self._remove_parser_labels()
+
         return self._data
 
     def _parse_cli_arguments(self, argv):
@@ -129,7 +131,7 @@ class Sarge(SubCommand):
         # Create ArgumentParser instance and initialize
         ap = ArgumentParser(**argument_parser_kwargs)
         parser = _ArgumentParserWrapper(ap)
-        parser.set_defaults(**self._parser.get_set_default_kwargs_masked())
+        parser.set_defaults(**self._parser.get_set_default_kwargs())
 
         # Add global arguments first
         global_arguments = self._parser.compile_argument_list({'global': True})
@@ -186,7 +188,7 @@ class Sarge(SubCommand):
     def _move_defaults_from_collected_data_cli(self, parser=None):
         parser = parser or self._parser
 
-        key = parser.default_mask()
+        key = parser.defaults_label()
         defaults = self._collected_data['cli'].pop(key, {})
 
         self._collected_data['defaults'].update(defaults)
@@ -197,7 +199,7 @@ class Sarge(SubCommand):
     def _setup_callbacks(self, parser=None):
         parser = parser or self._parser
 
-        key = parser.callback_mask()
+        key = parser.callback_label()
         callback = self._collected_data['cli'].pop(key, None)
 
         if callback:
@@ -208,6 +210,11 @@ class Sarge(SubCommand):
 
     def _parse_envvars_and_defaults(self, parser=None):
         parser = parser or self._parser
+
+        # No point in adding data from subcommands that did not run
+        key = parser.parser_label()
+        if not self._collected_data['cli'].get(key, False):
+            return
 
         for argument in parser.arguments:
             dest = argument.dest
@@ -228,6 +235,11 @@ class Sarge(SubCommand):
     def _parse_config(self, config, parser=None):
         parser = parser or self._parser
 
+        # No point in adding data from subcommands that did not run
+        key = parser.parser_label()
+        if not self._collected_data['cli'].get(key, False):
+            return
+
         for argument in parser.arguments:
             dest = argument.dest
 
@@ -239,6 +251,16 @@ class Sarge(SubCommand):
 
         for subparser in parser.subparsers:
             self._parse_config(config, subparser)
+
+    def _remove_parser_labels(self, parser=None):
+        parser = parser or self._parser
+
+        key = parser.parser_label()
+        if not self._collected_data['cli'].pop(key, False):
+            return
+
+        for subparser in parser.subparsers:
+            self._remove_parser_labels(subparser)
 
 
 class _ArgumentParserWrapper:
@@ -297,7 +319,7 @@ class _ArgumentParserWrapper:
                 **subparser.argument_parser_kwargs
             )
 
-            new_parser.set_defaults(**subparser.get_set_default_kwargs_masked())
+            new_parser.set_defaults(**subparser.get_set_default_kwargs())
 
             arguments = subparser.compile_argument_list()
             new_parser.add_arguments(*arguments)
