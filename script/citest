@@ -10,14 +10,13 @@ if [ -z "$TRAVIS" ]; then
 	exit 1
 fi
 
+# Don't run tests, just the linter
+python test/run.py --ignore=test
+
+# Run tests
 mkdir -p reports
 cd reports
 
-python ../test/run.py -k test/unit/
-codecov -F unit
-
-python ../test/run.py -k test/integration/
-codecov -F integration
-
-python ../test/run.py -k test/acceptance/
-codecov -F acceptance
+for kind in unit integration acceptance; do
+	python ../test/run.py --no-lint -k "test/$kind/"
+	codecov -F "$kind"
