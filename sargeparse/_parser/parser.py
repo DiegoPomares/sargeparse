@@ -100,10 +100,12 @@ class Parser:
     def _process_common_argument_parser_kwargs(self):
         self.argument_parser_kwargs.setdefault('formatter_class', HelpFormatter)
         self.argument_parser_kwargs.setdefault('argument_default', sargeparse.unset)
-        self.argument_parser_kwargs.setdefault('allow_abbrev', False)
 
         if python_version('<3.5'):  # Unsupported
-            self.argument_parser_kwargs.pop('allow_abbrev', None)
+            if 'allow_abbrev' in self.argument_parser_kwargs:
+                raise ValueError("'allow_abbrev' is not supported in Python < 3.5")
+        else:
+            self.argument_parser_kwargs.setdefault('allow_abbrev', False)
 
         if self._show_warnings and self.argument_parser_kwargs.get('allow_abbrev'):
             LOG.warning("Disabling 'allow_abbrev' is probably better to ensure consistent behavior")
