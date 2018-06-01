@@ -1,7 +1,5 @@
 
-class check_kwargs:
-    # pylint: disable=invalid-name
-
+class check_kwargs:  # pylint: disable=invalid-name
     def __init__(self, d):
         self.d = d
 
