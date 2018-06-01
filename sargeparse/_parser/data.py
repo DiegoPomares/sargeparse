@@ -51,7 +51,7 @@ class DataMerger(ChainMap):
     def _move_defaults_from_collected_data_cli(self, parser=None):
         parser = parser or self._parser
 
-        key = parser.default_mask()
+        key = parser.defaults_label()
         defaults = self.cli.pop(key, {})
 
         self.defaults.update(defaults)
@@ -61,10 +61,9 @@ class DataMerger(ChainMap):
 
     def _get_callbacks(self, parser=None):
         parser = parser or self._parser
-
         callback_list = []
 
-        key = parser.callback_mask()
+        key = parser.callback_label()
         callback = self.cli.pop(key, None)
 
         if callback:
@@ -79,6 +78,11 @@ class DataMerger(ChainMap):
 
     def _parse_envvars_and_defaults(self, parser=None):
         parser = parser or self._parser
+
+        # No point in adding data from subcommands that did not run
+        key = parser.parser_label()
+        if not self.cli.get(key, False):
+            return
 
         for argument in parser.arguments:
             dest = argument.dest
@@ -99,6 +103,11 @@ class DataMerger(ChainMap):
     def _parse_config(self, config, parser=None):
         parser = parser or self._parser
 
+        # No point in adding data from subcommands that did not run
+        key = parser.parser_label()
+        if not self.cli.get(key, False):
+            return
+
         for argument in parser.arguments:
             dest = argument.dest
 
@@ -110,3 +119,13 @@ class DataMerger(ChainMap):
 
         for subparser in parser.subparsers:
             self._parse_config(config, subparser)
+
+    def _remove_parser_labels(self, parser=None):
+        parser = parser or self._parser
+
+        key = parser.parser_label()
+        if not self.cli.pop(key, False):
+            return
+
+        for subparser in parser.subparsers:
+            self._remove_parser_labels(subparser)

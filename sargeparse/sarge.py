@@ -101,7 +101,7 @@ class Sarge(SubCommand):
             config = read_config(self._data)
             self._data._parse_config(config)
 
-        self._remove_parser_labels()
+        self._data._remove_parser_labels()
 
         return self._data
 
@@ -170,88 +170,6 @@ class Sarge(SubCommand):
         })
 
         return parser
-
-    def _remove_unset_from_collected_data_cli(self):
-        for k, v in list(self._collected_data['cli'].items()):
-            if v == sargeparse.unset:
-                self._collected_data['cli'].pop(k)
-
-    def _move_defaults_from_collected_data_cli(self, parser=None):
-        parser = parser or self._parser
-
-        key = parser.defaults_label()
-        defaults = self._collected_data['cli'].pop(key, {})
-
-        self._collected_data['defaults'].update(defaults)
-
-        for subparser in parser.subparsers:
-            self._move_defaults_from_collected_data_cli(subparser)
-
-    def _setup_callbacks(self, parser=None):
-        parser = parser or self._parser
-
-        key = parser.callback_label()
-        callback = self._collected_data['cli'].pop(key, None)
-
-        if callback:
-            self._callbacks.append(callback)
-
-        for subparser in parser.subparsers:
-            self._setup_callbacks(subparser)
-
-    def _parse_envvars_and_defaults(self, parser=None):
-        parser = parser or self._parser
-
-        # No point in adding data from subcommands that did not run
-        key = parser.parser_label()
-        if not self._collected_data['cli'].get(key, False):
-            return
-
-        for argument in parser.arguments:
-            dest = argument.dest
-
-            envvar = argument.get_value_from_envvar(default=sargeparse.unset)
-            if envvar != sargeparse.unset:
-                self._collected_data['environment'][dest] = envvar
-
-            default = argument.get_default_value(default=sargeparse.unset)
-            if default != sargeparse.unset:
-                self._collected_data['defaults'][dest] = default
-
-            self._collected_data['arg_default'][dest] = parser.argument_parser_kwargs['argument_default']
-
-        for subparser in parser.subparsers:
-            self._parse_envvars_and_defaults(subparser)
-
-    def _parse_config(self, config, parser=None):
-        parser = parser or self._parser
-
-        # No point in adding data from subcommands that did not run
-        key = parser.parser_label()
-        if not self._collected_data['cli'].get(key, False):
-            return
-
-        for argument in parser.arguments:
-            dest = argument.dest
-
-            config_value = argument.get_value_from_config(config, default=sargeparse.unset)
-            if config_value != sargeparse.unset:
-                self._collected_data['configuration'][dest] = config_value
-
-            self._collected_data['arg_default'][dest] = parser.argument_parser_kwargs['argument_default']
-
-        for subparser in parser.subparsers:
-            self._parse_config(config, subparser)
-
-    def _remove_parser_labels(self, parser=None):
-        parser = parser or self._parser
-
-        key = parser.parser_label()
-        if not self._collected_data['cli'].pop(key, False):
-            return
-
-        for subparser in parser.subparsers:
-            self._remove_parser_labels(subparser)
 
 
 class _ArgumentParserWrapper:
