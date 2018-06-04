@@ -24,4 +24,4 @@ username: ${REPOSITORY_USER}
 password: ${REPOSITORY_PWD}
 EOF
 
-python setup.py sdist bdist_wheel upload -r repository
+python setup.py sdist upload -r repository
