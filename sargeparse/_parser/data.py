@@ -2,15 +2,19 @@ from collections import ChainMap
 
 import sargeparse.consts
 
+from sargeparse._parser.parser import Parser
 
-class DataMerger(ChainMap):
+
+class ArgumentValues(ChainMap):
     _default_precedence = ['cli', 'environment', 'configuration', 'defaults']
 
-    def __init__(self, parser, precedence=None):
+    def __init__(self, parser: Parser, precedence=None):
         super().__init__()
 
         self._parser = parser
+        self._config_data = {}
         self._data_sources = {}
+        self.callbacks = []
 
         for source in self._format_precedence_list(self._default_precedence):
             self._data_sources[source] = {}
@@ -39,32 +43,54 @@ class DataMerger(ChainMap):
         for d in self._data_sources.values():
             d.clear()
 
+    def dispatch(self, *, obj=None):
+        last_callback = len(self.callbacks) - 1
+
+        ctx = Context(self, obj)
+        for i, fn in enumerate(self.callbacks):
+            if i == last_callback:
+                ctx.last = True
+
+            value = fn(ctx)
+
+            if value is False:
+                break
+
     @staticmethod
     def _format_precedence_list(precedence):
         return ['override'] + precedence + ['arg_default']
 
-    def _remove_unset_from_collected_data_cli(self):
+    def _remove_unset_from_data_sources_cli(self):
         for k, v in list(self.cli.items()):
             if v == sargeparse.unset:
                 self.cli.pop(k)
 
-    def _move_defaults_from_collected_data_cli(self, parser=None):
+    def _move_defaults_from_data_sources_cli(self, parser=None):
         parser = parser or self._parser
 
-        key = parser.defaults_label()
-        defaults = self.cli.pop(key, {})
+        key = parser.parser_key()
+        if key not in self.cli:
+            return
+
+        defaults = self.cli[key].get('defaults', {})
 
         self.defaults.update(defaults)
 
         for subparser in parser.subparsers:
-            self._move_defaults_from_collected_data_cli(subparser)
+            self._move_defaults_from_data_sources_cli(subparser)
+
+    def _parse_callbacks(self):
+        self.callbacks = self._get_callbacks()
 
     def _get_callbacks(self, parser=None):
         parser = parser or self._parser
         callback_list = []
 
-        key = parser.callback_label()
-        callback = self.cli.pop(key, None)
+        key = parser.parser_key()
+        if key not in self.cli:
+            return []
+
+        callback = self.cli[key].get('callback')
 
         if callback:
             callback_list.append(callback)
@@ -80,8 +106,8 @@ class DataMerger(ChainMap):
         parser = parser or self._parser
 
         # No point in adding data from subcommands that did not run
-        key = parser.parser_label()
-        if not self.cli.get(key, False):
+        key = parser.parser_key()
+        if key not in self.cli:
             return
 
         for argument in parser.arguments:
@@ -102,10 +128,11 @@ class DataMerger(ChainMap):
 
     def _parse_config(self, config, parser=None):
         parser = parser or self._parser
+        self._config_data = config
 
         # No point in adding data from subcommands that did not run
-        key = parser.parser_label()
-        if not self.cli.get(key, False):
+        key = parser.parser_key()
+        if key not in self.cli:
             return
 
         for argument in parser.arguments:
@@ -120,12 +147,21 @@ class DataMerger(ChainMap):
         for subparser in parser.subparsers:
             self._parse_config(config, subparser)
 
-    def _remove_parser_labels(self, parser=None):
+    def _remove_parser_key_from_data_sources_cli(self, parser=None):
         parser = parser or self._parser
 
-        key = parser.parser_label()
-        if not self.cli.pop(key, False):
+        key = parser.parser_key()
+        if key not in self.cli:
             return
 
+        self.cli.pop(key)
+
         for subparser in parser.subparsers:
-            self._remove_parser_labels(subparser)
+            self._remove_parser_key_from_data_sources_cli(subparser)
+
+
+class Context:
+    def __init__(self, data, obj):
+        self.values = data
+        self.obj = obj
+        self.last = False

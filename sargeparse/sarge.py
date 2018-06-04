@@ -9,7 +9,7 @@ from sargeparse._parser import (
     Argument,
     ArgumentGroup,
     MutualExclussionGroup,
-    DataMerger,
+    ArgumentValues,
     Parser,
 )
 
@@ -76,44 +76,34 @@ class Sarge(SubCommand):
         }
 
         self.help_subcommand = self._custom_parameters['help_subcommand']
-        self._callbacks = []
 
         kwargs['_main_command'] = True
         super().__init__(definition, **kwargs)
 
         precedence = kwargs.pop('precedence', None)
-        self._data = DataMerger(self._parser, precedence)
+        self._data = ArgumentValues(self._parser, precedence)
 
     def parse(self, argv=None, read_config=None):
         argv = argv or sys.argv[1:]
 
         self._data.clear_all()
 
-        self._parse_cli_arguments(argv)
-        self._data._remove_unset_from_collected_data_cli()
-        self._data._move_defaults_from_collected_data_cli()
-        self._data._parse_envvars_and_defaults()
+        cli_args = self._parse_cli_arguments(argv)
+        self._data.cli.update(cli_args)
+        self._data._remove_unset_from_data_sources_cli()
+        self._data._move_defaults_from_data_sources_cli()
 
-        self._callbacks = self._data._get_callbacks()
+        self._data._parse_envvars_and_defaults()
 
         # Config callback
         if read_config:
             config = read_config(self._data)
             self._data._parse_config(config)
 
-        self._data._remove_parser_labels()
+        self._data._parse_callbacks()
+        self._data._remove_parser_key_from_data_sources_cli()
 
         return self._data
-
-    def dispatch(self, *, context=None):
-        indexes = reversed(range(len(self._callbacks)))
-
-        # TODO decide how to implement the dispatcher
-        for _, fn in zip(indexes, self._callbacks):
-            value = fn(self._data, context)
-
-            if value is False:
-                break
 
     def _parse_cli_arguments(self, argv):
         argument_parser_kwargs = self._parser.argument_parser_kwargs.copy()
@@ -153,8 +143,7 @@ class Sarge(SubCommand):
         # Finish parsing args
         parsed_args = parser.parse_args(rest, parsed_args)
 
-        # Update _arguments
-        self._data.cli.update(parsed_args.__dict__)
+        return parsed_args.__dict__
 
     def _make_help_subparser(self):
         parser = Parser(
