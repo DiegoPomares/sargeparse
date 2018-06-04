@@ -1,5 +1,4 @@
 import sys
-import collections
 
 import sargeparse.consts
 
@@ -10,6 +9,7 @@ from sargeparse._parser import (
     Argument,
     ArgumentGroup,
     MutualExclussionGroup,
+    ArgumentValues,
     Parser,
 )
 
@@ -50,11 +50,11 @@ class SubCommand:
     def add_arguments(self, *definitions):
         self._parser.add_arguments(*definitions)
 
-    def add_defaults(self, **kwargs):
-        self._parser.add_set_defaults_kwargs(**kwargs)
+    def add_defaults(self, defaults):
+        self._parser.add_set_defaults_kwargs(defaults)
 
-    def add_group_descriptions(self, **kwargs):
-        self._parser.add_group_descriptions(**kwargs)
+    def add_group_descriptions(self, descriptions):
+        self._parser.add_group_descriptions(descriptions)
 
     def add_subcommand(self, subcommand):
         if isinstance(subcommand, dict):
@@ -68,8 +68,6 @@ class SubCommand:
 
 
 class Sarge(SubCommand):
-    _default_precedence = ['cli', 'environment', 'configuration', 'defaults']
-
     def __init__(self, definition, **kwargs):
         definition = definition.copy()
 
@@ -79,48 +77,31 @@ class Sarge(SubCommand):
 
         self.help_subcommand = self._custom_parameters['help_subcommand']
 
-        self._callbacks = []
-        self._collected_data = {}
-        self._data = collections.ChainMap()
-        self.set_precedence()
-
         kwargs['_main_command'] = True
         super().__init__(definition, **kwargs)
 
-    def set_precedence(self, precedence=None):
-        precedence = precedence or self._default_precedence
-
-        difference = set(self._default_precedence).symmetric_difference(set(precedence))
-        if difference:
-            msg = "Precedence must contain all and only these elements: {}"
-            raise TypeError(msg.format(self._default_precedence))
-
-        precedence = ['override'] + precedence + ['arg_default']
-
-        if not self._collected_data:
-            self._collected_data = {k: {} for k in precedence}
-
-        self._data.maps = [self._collected_data[k] for k in precedence]
+        precedence = kwargs.pop('precedence', None)
+        self._data = ArgumentValues(self._parser, precedence)
 
     def parse(self, argv=None, read_config=None):
         argv = argv or sys.argv[1:]
 
-        self._callbacks = []
-        for d in self._collected_data.values():
-            d.clear()
+        self._data.clear_all()
 
-        self._parse_cli_arguments(argv)
-        self._remove_unset_from_collected_data_cli()
-        self._move_defaults_from_collected_data_cli()
-        self._setup_callbacks()
-        self._parse_envvars_and_defaults()
+        cli_args = self._parse_cli_arguments(argv)
+        self._data.cli.update(cli_args)
+        self._data._remove_unset_from_data_sources_cli()
+        self._data._move_defaults_from_data_sources_cli()
+
+        self._data._parse_envvars_and_defaults()
 
         # Config callback
         if read_config:
             config = read_config(self._data)
-            self._parse_config(config)
+            self._data._parse_config(config)
 
-        self._remove_parser_labels()
+        self._data._parse_callbacks()
+        self._data._remove_parser_key_from_data_sources_cli()
 
         return self._data
 
@@ -155,17 +136,16 @@ class Sarge(SubCommand):
         # Add subcommands
         parser.add_subcommands(*self._parser.subparsers)
         if self._parser.subparsers and self.help_subcommand:
-            parser.add_subcommands(self._get_help_subparser())
+            parser.add_subcommands(self._make_help_subparser())
 
         # TODO subcommand usage in description flag
 
         # Finish parsing args
         parsed_args = parser.parse_args(rest, parsed_args)
 
-        # Update _arguments
-        self._collected_data['cli'].update(parsed_args.__dict__)
+        return parsed_args.__dict__
 
-    def _get_help_subparser(self):
+    def _make_help_subparser(self):
         parser = Parser(
             {'name': 'help', 'help': "show this message"},
             show_warnings=self._show_warnings,
@@ -179,88 +159,6 @@ class Sarge(SubCommand):
         })
 
         return parser
-
-    def _remove_unset_from_collected_data_cli(self):
-        for k, v in list(self._collected_data['cli'].items()):
-            if v == sargeparse.unset:
-                self._collected_data['cli'].pop(k)
-
-    def _move_defaults_from_collected_data_cli(self, parser=None):
-        parser = parser or self._parser
-
-        key = parser.defaults_label()
-        defaults = self._collected_data['cli'].pop(key, {})
-
-        self._collected_data['defaults'].update(defaults)
-
-        for subparser in parser.subparsers:
-            self._move_defaults_from_collected_data_cli(subparser)
-
-    def _setup_callbacks(self, parser=None):
-        parser = parser or self._parser
-
-        key = parser.callback_label()
-        callback = self._collected_data['cli'].pop(key, None)
-
-        if callback:
-            self._callbacks.append(callback)
-
-        for subparser in parser.subparsers:
-            self._setup_callbacks(subparser)
-
-    def _parse_envvars_and_defaults(self, parser=None):
-        parser = parser or self._parser
-
-        # No point in adding data from subcommands that did not run
-        key = parser.parser_label()
-        if not self._collected_data['cli'].get(key, False):
-            return
-
-        for argument in parser.arguments:
-            dest = argument.dest
-
-            envvar = argument.get_value_from_envvar(default=sargeparse.unset)
-            if envvar != sargeparse.unset:
-                self._collected_data['environment'][dest] = envvar
-
-            default = argument.get_default_value(default=sargeparse.unset)
-            if default != sargeparse.unset:
-                self._collected_data['defaults'][dest] = default
-
-            self._collected_data['arg_default'][dest] = parser.argument_parser_kwargs['argument_default']
-
-        for subparser in parser.subparsers:
-            self._parse_envvars_and_defaults(subparser)
-
-    def _parse_config(self, config, parser=None):
-        parser = parser or self._parser
-
-        # No point in adding data from subcommands that did not run
-        key = parser.parser_label()
-        if not self._collected_data['cli'].get(key, False):
-            return
-
-        for argument in parser.arguments:
-            dest = argument.dest
-
-            config_value = argument.get_value_from_config(config, default=sargeparse.unset)
-            if config_value != sargeparse.unset:
-                self._collected_data['configuration'][dest] = config_value
-
-            self._collected_data['arg_default'][dest] = parser.argument_parser_kwargs['argument_default']
-
-        for subparser in parser.subparsers:
-            self._parse_config(config, subparser)
-
-    def _remove_parser_labels(self, parser=None):
-        parser = parser or self._parser
-
-        key = parser.parser_label()
-        if not self._collected_data['cli'].pop(key, False):
-            return
-
-        for subparser in parser.subparsers:
-            self._remove_parser_labels(subparser)
 
 
 class _ArgumentParserWrapper:

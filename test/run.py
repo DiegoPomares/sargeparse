@@ -20,8 +20,8 @@ arg_groups = {
     'coverage': [
         '--cov={}'.format(PACKAGE),
         '--cov-report=term-missing',
-        '--cov-report=xml:reports/coverage.xml',
-        '--cov-report=html:reports/coverage',
+        '--cov-report=xml:coverage.xml',
+        '--cov-report=html:htmlcov',
     ],
 }
 

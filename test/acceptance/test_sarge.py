@@ -55,6 +55,9 @@ def test_full_ok(caplog):
         }
     })
 
+    parser.add_defaults({
+        'extra2': 'EXTRA_ARG2',
+    })
     parser.add_arguments({
         'names': ['-a', '--arg'],
         'help': 'ARG_HELP',
@@ -97,6 +100,8 @@ def test_full_ok(caplog):
 
     args = parser.parse(read_config=get_config)
 
+    assert args.callbacks == ['fn_main', 'fn_run']
+
     assert args == ChainMap(
         {},
         {
@@ -115,6 +120,7 @@ def test_full_ok(caplog):
             'barg': 'bargdef',
             'debug': False,
             'extra': 'EXTRA_ARG',
+            'extra2': 'EXTRA_ARG2',
             'flag': 'flagdef',
             'x': False,
             'y': False,
@@ -200,4 +206,91 @@ def test_envvar_default_config_same_name_many_subcommands():
             'arg1': sargeparse.unset,
             'arg2': sargeparse.unset,
         }
+    )
+
+
+def test_callback_dispatch():
+
+    obj_main = {
+        'last': True
+    }
+
+    obj_sub = {
+        'last': False,
+        'value': 1
+    }
+
+    def cb_main(ctx):
+        assert ctx.last == ctx.obj['last']
+
+        if ctx.last:
+            assert ctx.values['arg1'] == 'A1'
+            assert ctx.values['arg2'] == sargeparse.unset
+
+        else:
+            assert ctx.obj['value'] == 1
+            ctx.obj['value'] = 2
+            ctx.values['arg2'] = 'A2'
+
+    def cb_sub(ctx):
+        assert ctx.last is True
+        assert ctx.obj['value'] == 2
+        assert ctx.values['arg1'] == 'A1'
+        assert ctx.values['arg2'] == 'A2'
+
+    parser = sargeparse.Sarge({
+        'callback': cb_main,
+        'arguments': [
+            {
+                'names': ['--arg1'],
+                'default': 'A1',
+            },
+            {
+                'names': ['--arg2'],
+            },
+        ],
+        'subcommands': [
+            {
+                'name': 'sub',
+                'callback': cb_sub,
+            }
+        ]
+    })
+
+    sys.argv = shlex.split('test')
+    args = parser.parse()
+    assert args.callbacks == [cb_main]
+    args.dispatch(obj=obj_main)
+    assert args == ChainMap(
+        {},
+        {},
+        {},
+        {},
+        {
+            'arg1': 'A1'
+        },
+        {
+            'arg1': sargeparse.unset,
+            'arg2': sargeparse.unset,
+        },
+    )
+
+    sys.argv = shlex.split('test sub')
+    args = parser.parse()
+    assert args.callbacks == [cb_main, cb_sub]
+    args.dispatch(obj=obj_sub)
+    assert args == ChainMap(
+        {
+            'arg2': 'A2'
+        },
+        {},
+        {},
+        {},
+        {
+            'arg1': 'A1'
+        },
+        {
+            'arg1': sargeparse.unset,
+            'arg2': sargeparse.unset,
+        },
     )

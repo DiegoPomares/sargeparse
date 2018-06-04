@@ -24,7 +24,7 @@ class Parser:
         self.subparsers = []
 
         self.custom_parameters = {
-            'callback': definition.pop('callback', None),  # TODO implement callbacks
+            'callback': definition.pop('callback', None),
             'group_descriptions': definition.pop('group_descriptions', {}),
             'defaults': definition.pop('defaults', {}),
             'subparser': definition.pop('subparser', {}),
@@ -63,31 +63,24 @@ class Parser:
 
         self._log_warning_if_command_has_positional_arguments_and_subparsers()
 
-    def add_set_defaults_kwargs(self, **kwargs):
-        self.custom_parameters['defaults'].update(kwargs)
+    def add_set_defaults_kwargs(self, defaults):
+        self.custom_parameters['defaults'].update(defaults)
 
-    def parser_label(self):
+    def parser_key(self):
         return '_parser_{}'.format(id(self))
-
-    def callback_label(self):
-        return '_callback_{}'.format(id(self))
-
-    def defaults_label(self):
-        return '_defaults_{}'.format(id(self))
 
     def get_set_default_kwargs(self):
         kwargs = {}
 
-        kwargs[self.parser_label()] = True
-        kwargs[self.defaults_label()] = self.set_defaults_kwargs
+        kwargs['defaults'] = self.set_defaults_kwargs
 
         if self.callback:
-            kwargs[self.callback_label()] = self.callback
+            kwargs['callback'] = self.callback
 
-        return kwargs
+        return {self.parser_key(): kwargs}
 
-    def add_group_descriptions(self, **kwargs):
-        self.custom_parameters['group_descriptions'].update(kwargs)
+    def add_group_descriptions(self, descriptions):
+        self.custom_parameters['group_descriptions'].update(descriptions)
 
     def _process_argument_parser_kwargs(self):
         self._process_common_argument_parser_kwargs()
@@ -100,10 +93,12 @@ class Parser:
     def _process_common_argument_parser_kwargs(self):
         self.argument_parser_kwargs.setdefault('formatter_class', HelpFormatter)
         self.argument_parser_kwargs.setdefault('argument_default', sargeparse.unset)
-        self.argument_parser_kwargs.setdefault('allow_abbrev', False)
 
         if python_version('<3.5'):  # Unsupported
-            self.argument_parser_kwargs.pop('allow_abbrev', None)
+            if 'allow_abbrev' in self.argument_parser_kwargs:
+                raise ValueError("'allow_abbrev' is not supported in Python < 3.5")
+        else:
+            self.argument_parser_kwargs.setdefault('allow_abbrev', False)
 
         if self._show_warnings and self.argument_parser_kwargs.get('allow_abbrev'):
             LOG.warning("Disabling 'allow_abbrev' is probably better to ensure consistent behavior")

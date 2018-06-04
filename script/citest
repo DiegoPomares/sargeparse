@@ -14,10 +14,7 @@ fi
 python test/run.py --ignore=test
 
 # Run tests
-mkdir -p reports
-cd reports
-
 for kind in unit integration acceptance; do
-	python ../test/run.py --no-lint -k "test/$kind/"
+	python test/run.py --no-lint -k "test/$kind/"
 	codecov -F "$kind"
 done
