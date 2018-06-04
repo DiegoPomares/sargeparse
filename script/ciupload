@@ -10,7 +10,7 @@ if [ -z "$TRAVIS" ]; then
     exit 1
 fi
 
-trap "{ rm -f ~/.pypirc; exit 0; }" EXIT
+trap "{ CODE=$?; rm -f ~/.pypirc; exit $CODE; }" EXIT
 
 touch ~/.pypirc
 chmod 600 ~/.pypirc
