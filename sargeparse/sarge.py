@@ -50,11 +50,11 @@ class SubCommand:
     def add_arguments(self, *definitions):
         self._parser.add_arguments(*definitions)
 
-    def add_defaults(self, **kwargs):
-        self._parser.add_set_defaults_kwargs(**kwargs)
+    def add_defaults(self, defaults):
+        self._parser.add_set_defaults_kwargs(defaults)
 
-    def add_group_descriptions(self, **kwargs):
-        self._parser.add_group_descriptions(**kwargs)
+    def add_group_descriptions(self, descriptions):
+        self._parser.add_group_descriptions(descriptions)
 
     def add_subcommand(self, subcommand):
         if isinstance(subcommand, dict):

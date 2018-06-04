@@ -55,6 +55,9 @@ def test_full_ok(caplog):
         }
     })
 
+    parser.add_defaults({
+        'extra2': 'EXTRA_ARG2',
+    })
     parser.add_arguments({
         'names': ['-a', '--arg'],
         'help': 'ARG_HELP',
@@ -117,6 +120,7 @@ def test_full_ok(caplog):
             'barg': 'bargdef',
             'debug': False,
             'extra': 'EXTRA_ARG',
+            'extra2': 'EXTRA_ARG2',
             'flag': 'flagdef',
             'x': False,
             'y': False,

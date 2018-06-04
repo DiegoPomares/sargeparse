@@ -63,8 +63,8 @@ class Parser:
 
         self._log_warning_if_command_has_positional_arguments_and_subparsers()
 
-    def add_set_defaults_kwargs(self, **kwargs):
-        self.custom_parameters['defaults'].update(kwargs)
+    def add_set_defaults_kwargs(self, defaults):
+        self.custom_parameters['defaults'].update(defaults)
 
     def parser_key(self):
         return '_parser_{}'.format(id(self))
@@ -79,8 +79,8 @@ class Parser:
 
         return {self.parser_key(): kwargs}
 
-    def add_group_descriptions(self, **kwargs):
-        self.custom_parameters['group_descriptions'].update(kwargs)
+    def add_group_descriptions(self, descriptions):
+        self.custom_parameters['group_descriptions'].update(descriptions)
 
     def _process_argument_parser_kwargs(self):
         self._process_common_argument_parser_kwargs()
