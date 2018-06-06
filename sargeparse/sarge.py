@@ -111,12 +111,12 @@ class Sarge(SubCommand):
 
         # Create ArgumentParser instance and initialize
         ap = ArgumentParser(**argument_parser_kwargs)
-        parser = _ArgumentParserWrapper(ap)
-        parser.set_defaults(**self._parser.get_set_default_kwargs())
+        apw = _ArgumentParserWrapper(ap)
+        apw.set_defaults(**self._parser.get_set_default_kwargs())
 
         # Add global arguments first
         global_arguments = self._parser.compile_argument_list({'global': True})
-        parser.add_arguments(*global_arguments)
+        apw.add_arguments(*global_arguments)
 
         # Replace help subcommand by --help at the end, makes it possible to use:
         # command help, command help subcommand, command help subcommand subsubcommand...
@@ -127,21 +127,21 @@ class Sarge(SubCommand):
         # Parse global options first so they can be placed anywhere, unless the --help/-h flag is set
         parsed_args, rest = None, argv
         if '-h' not in rest and '--help' not in rest:
-            parsed_args, rest = parser.parse_known_args(rest)
+            parsed_args, rest = apw.parse_known_args(rest)
 
         # Add the rest of arguments
         arguments = self._parser.compile_argument_list({'global': False})
-        parser.add_arguments(*arguments)
+        apw.add_arguments(*arguments)
 
         # Add subcommands
-        parser.add_subcommands(*self._parser.subparsers)
+        apw.add_subcommands(*self._parser.subparsers)
         if self._parser.subparsers and self.help_subcommand:
-            parser.add_subcommands(self._make_help_subparser())
+            apw.add_subcommands(self._make_help_subparser())
 
         # TODO subcommand usage in description flag
 
         # Finish parsing args
-        parsed_args = parser.parse_args(rest, parsed_args)
+        parsed_args = apw.parse_args(rest, parsed_args)
 
         return parsed_args.__dict__
 

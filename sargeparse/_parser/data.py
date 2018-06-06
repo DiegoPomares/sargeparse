@@ -117,7 +117,7 @@ class ArgumentValues(ChainMap):
             if envvar != sargeparse.unset:
                 self.environment[dest] = envvar
 
-            default = argument.get_default_value(default=sargeparse.unset)
+            default = argument.get_default_value(default=sargeparse.unset, apply_type=True)
             if default != sargeparse.unset:
                 self.defaults[dest] = default
 
