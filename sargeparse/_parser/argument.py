@@ -20,6 +20,7 @@ class Argument:
             main_command = kwargs.pop('main_command')
 
         self.custom_parameters = {
+            'show_default': definition.pop('show_default', False),
             'group': definition.pop('group', None),
             'mutex_group': definition.pop('mutex_group', None),
             'global': definition.pop('global', False),
@@ -49,13 +50,17 @@ class Argument:
         value = os.environ[envvar]
         return self.add_argument_kwargs.get('type', self._same)(value)
 
-    def get_default_value(self, *, default=None):
+    def get_default_value(self, *, default=None, apply_type=False):
         """Return default value from add_argument() kwargs"""
 
         if self.custom_parameters['default'] == sargeparse.unset:
             return default
 
-        return self.custom_parameters['default']
+        value = self.custom_parameters['default']
+        if not apply_type:
+            return value
+
+        return self.add_argument_kwargs.get('type', self._same)(value)
 
     def get_value_from_config(self, config, *, default=None):
         """Return value from dict, and apply its type"""
@@ -107,6 +112,10 @@ class Argument:
             msg = "Missing 'help' in %s. Please add something helpful, or set it to None to hide this warning"
             LOG.warning(msg, self.dest)
             self.add_argument_kwargs['help'] = "WARNING: MISSING HELP MESSAGE"
+        else:
+            self.add_argument_kwargs['help'] = self.add_argument_kwargs['help'] or ''
+
+        self._add_default_value_to_help()
 
         if self.is_positional():
             # argparse will raise an exception if the argument is positional and 'dest' is set
@@ -145,6 +154,17 @@ class Argument:
                 break
 
         return dest.replace('-', '_')
+
+    def _add_default_value_to_help(self):
+        if all((
+                self.custom_parameters['show_default'],
+                self.add_argument_kwargs['help'] != sargeparse.suppress,
+                self.get_default_value(default=sargeparse.unset) != sargeparse.unset,
+        )):
+            if self.add_argument_kwargs['help']:
+                self.add_argument_kwargs['help'] += " "
+
+            self.add_argument_kwargs['help'] += "(default: {})".format(self.get_default_value())
 
     def _get_value_from_path(self, dictionary, path):
         """Return the value for path, where path represent a list of keys in nested dicts separated by '/'"""
