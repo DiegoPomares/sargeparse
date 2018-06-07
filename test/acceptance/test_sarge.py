@@ -210,13 +210,18 @@ def test_envvar_default_config_same_name_many_subcommands():
     )
 
 
-def test_callback_dispatch():
+def test_callback_dispatch_and_decorator():
 
     obj_main = {
         'last': True
     }
 
     obj_sub = {
+        'last': False,
+        'value': 1
+    }
+
+    obj_deco = {
         'last': False,
         'value': 1
     }
@@ -258,6 +263,22 @@ def test_callback_dispatch():
         ]
     })
 
+    @parser.subcommand({
+        'name': 'deco',
+        'arguments': [
+            {
+                'names': ['--arg3'],
+                'default': 'A3',
+            },
+        ]
+    })
+    def cb_deco(ctx):
+        assert ctx.last is True
+        assert ctx.obj['value'] == 2
+        assert ctx.values['arg1'] == 'A1'
+        assert ctx.values['arg2'] == 'A2'
+        assert ctx.values['arg3'] == 'A3'
+
     sys.argv = shlex.split('test')
     args = parser.parse()
     assert args.callbacks == [cb_main]
@@ -293,6 +314,29 @@ def test_callback_dispatch():
         {
             'arg1': sargeparse.unset,
             'arg2': sargeparse.unset,
+        },
+    )
+
+    sys.argv = shlex.split('test deco')
+    args = parser.parse()
+    print(args.callbacks)
+    assert args.callbacks == [cb_main, cb_deco]
+    args.dispatch(obj=obj_deco)
+    assert args == ChainMap(
+        {
+            'arg2': 'A2',
+        },
+        {},
+        {},
+        {},
+        {
+            'arg1': 'A1',
+            'arg3': 'A3',
+        },
+        {
+            'arg1': sargeparse.unset,
+            'arg2': sargeparse.unset,
+            'arg3': sargeparse.unset,
         },
     )
 
