@@ -248,7 +248,7 @@ class _ArgumentParserWrapper:
             if self.parser.description:
                 self.parser.description += '\n\n'
 
-            self.parser.description += 'usages:\n  '
+            self.parser.description += 'usage:\n  '
 
             self.parser.description += '\n  '.join(usages)
 
