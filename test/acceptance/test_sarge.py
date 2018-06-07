@@ -18,10 +18,16 @@ def sarge():
 
 def test_full_ok(caplog):
 
+    def fn_main():
+        pass
+
+    def fn_run():
+        pass
+
     parser = sargeparse.Sarge({
         'description': 'MAIN_DESCRIPTION',
         'epilog': 'MAIN_EPILOG',
-        'callback': 'fn_main',
+        'callback': fn_main,
         'arguments': [
             {
                 'names': ['--debug'],
@@ -73,7 +79,7 @@ def test_full_ok(caplog):
     parser.add_subcommands({
         'name': 'run',
         'help': 'just a subcommand',
-        'callback': 'fn_run',
+        'callback': fn_run,
         'arguments': [
             {
                 'names': ['--flag'],
@@ -101,7 +107,7 @@ def test_full_ok(caplog):
 
     args = parser.parse(read_config=get_config)
 
-    assert args.callbacks == ['fn_main', 'fn_run']
+    assert args.callbacks == [fn_main, fn_run]
 
     assert args == ChainMap(
         {},

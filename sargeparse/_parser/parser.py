@@ -41,6 +41,7 @@ class Parser:
 
         self._process_argument_parser_kwargs()
         self._process_add_subparsers_kwargs()
+        self._process_custom_parameters()
 
     def add_arguments(self, *definitions):
         for definition in definitions:
@@ -133,6 +134,10 @@ class Parser:
         self.custom_parameters['subparser'].setdefault('title', 'subcommands')
         self.custom_parameters['subparser'].setdefault('metavar', 'SUBCOMMAND')
         self.custom_parameters['subparser'].setdefault('help', None)
+
+    def _process_custom_parameters(self):
+        if self.callback is not None and not callable(self.callback):
+            raise TypeError("'callback' is not callable")
 
     def _log_warning_if_command_has_positional_arguments_and_subparsers(self):
         if self._show_warnings and self._has_positional_arguments and self.subparsers:
