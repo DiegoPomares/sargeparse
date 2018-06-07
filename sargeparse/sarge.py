@@ -152,8 +152,6 @@ class Sarge(SubCommand):
         if self._parser.subparsers and self.help_subcommand:
             apw.add_subcommands(self._make_help_subparser())
 
-        # TODO subcommand usage in description flag
-
         # Finish parsing args
         parsed_args = apw.parse_args(rest, parsed_args)
 
@@ -237,6 +235,22 @@ class _ArgumentParserWrapper:
             new_parser.add_arguments(*arguments)
 
             new_parser.add_subcommands(*subparser.subparsers)
+
+            self._add_subcommand_usage_to_description(subparser, new_parser)
+
+    def _add_subcommand_usage_to_description(self, subparser, new_parser):
+        usages = []
+
+        if subparser.add_usage_to_parent_command_desc:
+            usages.append(new_parser.parser.format_usage()[7:])
+
+        if usages:
+            if self.parser.description:
+                self.parser.description += '\n\n'
+
+            self.parser.description += 'usages:\n  '
+
+            self.parser.description += '\n  '.join(usages)
 
     def get_subparsers_obj(self):
         return self.parser._subparsers._group_actions[0]
