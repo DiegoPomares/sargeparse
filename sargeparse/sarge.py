@@ -66,6 +66,20 @@ class SubCommand:
         for subcommand in subcommands:
             self.add_subcommand(subcommand)
 
+    def subcommand(self, definition):
+        def caller(fn):
+            callback = definition.get('callback')
+            if callback:
+                msg = "Cannot use the subcommand decorator with a 'callback' in the definition: {}".format(
+                    callback)
+                raise ValueError(msg)
+
+            definition['callback'] = fn
+            self.add_subcommand(definition)
+
+            return fn
+        return caller
+
 
 class Sarge(SubCommand):
     def __init__(self, definition, **kwargs):
