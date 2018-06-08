@@ -1,3 +1,4 @@
+import sys
 from collections import ChainMap
 
 import sargeparse.consts
@@ -50,13 +51,17 @@ class ArgumentData(ChainMap):
 
         ctx = Context(self, obj)
         for i, fn in enumerate(self.callbacks):
-            if i == last_callback:
-                ctx.last = True
+            ctx.last = (i == last_callback)
 
-            value = fn(ctx)
+            ctx.return_value = fn(ctx)
 
-            if value is False:
+            if ctx.return_value == sargeparse.die:
+                sys.exit(ctx.return_value.value)
+
+            elif ctx.return_value == sargeparse.stop:
                 break
+
+        return ctx.return_value
 
     def _set_parser_data(self, arg_parser):
         self.parser.prog = arg_parser.prog
@@ -172,6 +177,7 @@ class Context:
         self.data = data
         self.obj = obj
         self.last = False
+        self.return_value = None
 
 
 class ParserData:
