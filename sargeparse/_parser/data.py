@@ -5,7 +5,7 @@ import sargeparse.consts
 from sargeparse._parser.parser import Parser
 
 
-class ArgumentValues(ChainMap):
+class ArgumentData(ChainMap):
     _default_precedence = ['cli', 'environment', 'configuration', 'defaults']
 
     def __init__(self, parser: Parser, precedence=None):
@@ -25,6 +25,8 @@ class ArgumentValues(ChainMap):
         self.configuration = self._data_sources['configuration']
         self.defaults = self._data_sources['defaults']
         self._arg_default = self._data_sources['arg_default']
+
+        self.parser_data = {}
 
         self.set_precedence(precedence)
 
@@ -55,6 +57,9 @@ class ArgumentValues(ChainMap):
 
             if value is False:
                 break
+
+    def _set_parser_data(self, arg_parser):
+        self.parser_data['prog'] = arg_parser.prog
 
     @staticmethod
     def _format_precedence_list(precedence):

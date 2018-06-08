@@ -9,7 +9,7 @@ from sargeparse._parser import (
     Argument,
     ArgumentGroup,
     MutualExclussionGroup,
-    ArgumentValues,
+    ArgumentData,
     Parser,
 )
 
@@ -95,14 +95,14 @@ class Sarge(SubCommand):
         super().__init__(definition, **kwargs)
 
         precedence = kwargs.pop('precedence', None)
-        self._data = ArgumentValues(self._parser, precedence)
+        self._data = ArgumentData(self._parser, precedence)
 
     def parse(self, argv=None, read_config=None):
         argv = argv or sys.argv[1:]
 
         self._data.clear_all()
 
-        cli_args = self._parse_cli_arguments(argv)
+        cli_args, arg_parser = self._parse_cli_arguments(argv)
         self._data.cli.update(cli_args)
         self._data._remove_unset_from_data_sources_cli()
         self._data._move_defaults_from_data_sources_cli()
@@ -116,6 +116,8 @@ class Sarge(SubCommand):
 
         self._data._parse_callbacks()
         self._data._remove_parser_key_from_data_sources_cli()
+
+        self._data._set_parser_data(arg_parser)
 
         return self._data
 
@@ -155,7 +157,7 @@ class Sarge(SubCommand):
         # Finish parsing args
         parsed_args = apw.parse_args(rest, parsed_args)
 
-        return parsed_args.__dict__
+        return parsed_args.__dict__, ap
 
     def _make_help_subparser(self):
         parser = Parser(
