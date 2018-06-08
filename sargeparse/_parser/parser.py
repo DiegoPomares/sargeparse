@@ -1,3 +1,4 @@
+import textwrap
 import logging
 
 import sargeparse.consts
@@ -12,7 +13,7 @@ from sargeparse._parser.group import ArgumentGroup, MutualExclussionGroup
 LOG = logging.getLogger(__name__)
 
 
-class Parser:
+class Parser:  # pylint: disable=too-many-instance-attributes
     def __init__(self, definition, **kwargs):
         definition = definition.copy()
 
@@ -25,6 +26,7 @@ class Parser:
 
         self.custom_parameters = {
             'callback': definition.pop('callback', None),
+            'add_usage_to_parent_command_desc': definition.pop('add_usage_to_parent_command_desc', False),
             'group_descriptions': definition.pop('group_descriptions', {}),
             'defaults': definition.pop('defaults', {}),
             'subparser': definition.pop('subparser', {}),
@@ -35,6 +37,7 @@ class Parser:
 
         self.name = None
         self.callback = self.custom_parameters['callback']
+        self.add_usage_to_parent_command_desc = self.custom_parameters['add_usage_to_parent_command_desc']
         self.set_defaults_kwargs = self.custom_parameters['defaults']
         self.add_subparsers_kwargs = self.custom_parameters['subparser']
         self.argument_parser_kwargs = definition
@@ -95,14 +98,13 @@ class Parser:
         self.argument_parser_kwargs.setdefault('formatter_class', HelpFormatter)
         self.argument_parser_kwargs.setdefault('argument_default', sargeparse.unset)
 
+        if 'description' in self.argument_parser_kwargs:
+            desc = textwrap.dedent(self.argument_parser_kwargs['description'])
+            self.argument_parser_kwargs['description'] = desc
+
         if python_version('<3.5'):  # Unsupported
             if 'allow_abbrev' in self.argument_parser_kwargs:
                 raise ValueError("'allow_abbrev' is not supported in Python < 3.5")
-        else:
-            self.argument_parser_kwargs.setdefault('allow_abbrev', False)
-
-        if self._show_warnings and self.argument_parser_kwargs.get('allow_abbrev'):
-            LOG.warning("Disabling 'allow_abbrev' is probably better to ensure consistent behavior")
 
         self._log_warning_if_elements_are_different_from_none(self.argument_parser_kwargs, 'prog', 'usage')
 
@@ -136,8 +138,23 @@ class Parser:
         self.custom_parameters['subparser'].setdefault('help', None)
 
     def _process_custom_parameters(self):
+        self._process_common_custom_parameters()
+
+        if self.main_command:
+            self._process_custom_parameters_for_main_command()
+        else:
+            self._process_custom_parameters_for_subcommand()
+
+    def _process_common_custom_parameters(self):
         if self.callback is not None and not callable(self.callback):
             raise TypeError("'callback' is not callable")
+
+    def _process_custom_parameters_for_main_command(self):
+        if self.add_usage_to_parent_command_desc:
+            raise TypeError("'add_usage_to_parent_command_desc' parameter applies only to subcommands")
+
+    def _process_custom_parameters_for_subcommand(self):
+        pass
 
     def _log_warning_if_command_has_positional_arguments_and_subparsers(self):
         if self._show_warnings and self._has_positional_arguments and self.subparsers:
