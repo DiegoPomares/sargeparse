@@ -236,19 +236,19 @@ def test_callback_dispatch_and_decorator():
         assert ctx.last == ctx.obj['last']
 
         if ctx.last:
-            assert ctx.values['arg1'] == 'A1'
-            assert ctx.values['arg2'] == sargeparse.unset
+            assert ctx.data['arg1'] == 'A1'
+            assert ctx.data['arg2'] == sargeparse.unset
 
         else:
             assert ctx.obj['value'] == 1
             ctx.obj['value'] = 2
-            ctx.values['arg2'] = 'A2'
+            ctx.data['arg2'] = 'A2'
 
     def cb_sub(ctx):
         assert ctx.last is True
         assert ctx.obj['value'] == 2
-        assert ctx.values['arg1'] == 'A1'
-        assert ctx.values['arg2'] == 'A2'
+        assert ctx.data['arg1'] == 'A1'
+        assert ctx.data['arg2'] == 'A2'
 
     parser = sargeparse.Sarge({
         'callback': cb_main,
@@ -281,9 +281,9 @@ def test_callback_dispatch_and_decorator():
     def cb_deco(ctx):
         assert ctx.last is True
         assert ctx.obj['value'] == 2
-        assert ctx.values['arg1'] == 'A1'
-        assert ctx.values['arg2'] == 'A2'
-        assert ctx.values['arg3'] == 'A3'
+        assert ctx.data['arg1'] == 'A1'
+        assert ctx.data['arg2'] == 'A2'
+        assert ctx.data['arg3'] == 'A3'
 
     sys.argv = shlex.split('test')
     args = parser.parse()

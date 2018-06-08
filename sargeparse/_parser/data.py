@@ -26,7 +26,7 @@ class ArgumentData(ChainMap):
         self.defaults = self._data_sources['defaults']
         self._arg_default = self._data_sources['arg_default']
 
-        self.parser_data = {}
+        self.parser = type('ParserData', (object,), {})()
 
         self.set_precedence(precedence)
 
@@ -59,7 +59,9 @@ class ArgumentData(ChainMap):
                 break
 
     def _set_parser_data(self, arg_parser):
-        self.parser_data['prog'] = arg_parser.prog
+        self.parser.prog = arg_parser.prog
+        self.parser.help = arg_parser.format_help()
+        self.parser.usage = arg_parser.format_usage()
 
     @staticmethod
     def _format_precedence_list(precedence):
@@ -167,6 +169,6 @@ class ArgumentData(ChainMap):
 
 class Context:
     def __init__(self, data, obj):
-        self.values = data
+        self.data = data
         self.obj = obj
         self.last = False
