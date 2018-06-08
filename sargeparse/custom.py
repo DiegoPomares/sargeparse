@@ -18,7 +18,7 @@ class HelpFormatter(argparse.HelpFormatter):
 
     @staticmethod
     def _get_terminal_width():
-        width, _ = shutil.get_terminal_size()
+        width, height_ = shutil.get_terminal_size()
         width = max((width, 120))
         return width
 
