@@ -59,6 +59,7 @@ class ArgumentData(ChainMap):
                 sys.exit(ctx.return_value.value)
 
             elif ctx.return_value == sargeparse.stop:
+                ctx.return_value = ctx.return_value.value
                 break
 
         return ctx.return_value
