@@ -105,11 +105,6 @@ class Parser:  # pylint: disable=too-many-instance-attributes
         if python_version('<3.5'):  # Unsupported
             if 'allow_abbrev' in self.argument_parser_kwargs:
                 raise ValueError("'allow_abbrev' is not supported in Python < 3.5")
-        else:
-            self.argument_parser_kwargs.setdefault('allow_abbrev', False)
-
-        if self._show_warnings and self.argument_parser_kwargs.get('allow_abbrev'):
-            LOG.warning("Disabling 'allow_abbrev' is probably better to ensure consistent behavior")
 
         self._log_warning_if_elements_are_different_from_none(self.argument_parser_kwargs, 'prog', 'usage')
 
