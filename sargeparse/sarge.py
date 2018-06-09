@@ -121,6 +121,29 @@ class Sarge(SubCommand):
 
         return self._data
 
+    @classmethod
+    def main_command(cls, definition, **kwargs):
+        def caller(fn):
+            callback = definition.get('callback')
+            if callback:
+                msg = "Cannot use the subcommand decorator with a 'callback' in the definition: {}".format(
+                    callback)
+                raise ValueError(msg)
+
+            definition['callback'] = fn
+
+            def wrapper(_, *args, **kwargs):
+                return fn(*args, **kwargs)
+
+            # Create a subclass of Sarge that when called, calls to a wrapped fn (ditches "self")
+            metaclass = cls.__class__
+            classname = '{}_{}'.format(cls.__name__, fn.__name__)
+            new_cls = metaclass(classname, (cls,), {})
+            new_cls.__call__ = wrapper
+
+            return new_cls(definition, **kwargs)
+        return caller
+
     def _parse_cli_arguments(self, argv):
         argument_parser_kwargs = self._parser.argument_parser_kwargs.copy()
         argument_parser_kwargs['argument_default'] = sargeparse.unset
