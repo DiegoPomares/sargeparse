@@ -139,6 +139,7 @@ class Sarge(SubCommand):
             metaclass = cls.__class__
             classname = '{}_{}'.format(cls.__name__, fn.__name__)
             new_cls = metaclass(classname, (cls,), {})
+            wrapper.fn = fn
             new_cls.__call__ = wrapper
 
             return new_cls(definition, **kwargs)
