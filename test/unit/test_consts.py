@@ -1,5 +1,6 @@
-import sargeparse.consts
 from itertools import permutations
+
+import sargeparse.consts
 
 
 def test_sentinel_factory():
