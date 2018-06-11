@@ -36,6 +36,7 @@ class Argument:
         self.add_argument_kwargs = definition
 
         self._process_add_argument_kwargs(main_command=main_command)
+        self._process_custom_parameters(main_command=main_command)
 
     def get_value_from_envvar(self, *, default=None):
         """Return value as read from the environment variable, and apply its type"""
@@ -143,6 +144,33 @@ class Argument:
     def _process_add_argument_kwargs_for_subcommand(self):
         if self.custom_parameters['global']:
             raise TypeError("Subcommands' arguments cannot be 'global'")
+
+    def _process_custom_parameters(self, main_command):
+        self._process_common_custom_parameters()
+
+        if main_command:
+            self._process_custom_parameters_for_main_command()
+        else:
+            self._process_custom_parameters_for_subcommand()
+
+    def _process_common_custom_parameters(self):
+        # Override default group names
+        if not self.group:
+            if self.add_argument_kwargs.get('required'):
+                self.group = 'required arguments'
+
+            elif self.custom_parameters.get('global'):
+                self.group = 'general arguments'
+
+            else:
+                # TODO rename this to 'optional arguments' after reimplementing add_help
+                self.group = 'other arguments'
+
+    def _process_custom_parameters_for_main_command(self):
+        pass
+
+    def _process_custom_parameters_for_subcommand(self):
+        pass
 
     def _make_dest_from_argument_names(self):
         """Get the 'dest' parameter based on the argument names"""
