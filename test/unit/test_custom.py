@@ -20,7 +20,6 @@ def test_ap_error(ap, capsys):
             patch('sargeparse.custom.ArgumentParser.print_usage', side_effect=(lambda: print(help_msg))):
         ap.error(error_msg)
 
-    assert ex.type == SystemExit
     assert ex.value.code == 2
 
     captured = capsys.readouterr()

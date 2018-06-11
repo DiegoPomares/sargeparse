@@ -190,7 +190,6 @@ def test_callback_dispatch_special_returns():
     obj = {'value': 1}
     with pytest.raises(SystemExit) as ex:
         args.dispatch(obj=obj)
-    assert ex.type == SystemExit
     assert ex.value.code == 100
     assert obj['value'] == 10
 
