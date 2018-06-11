@@ -282,7 +282,6 @@ def test_show_default_and_help(capsys):
         sys.argv = shlex.split('test -h')
         parser.parse()
 
-    assert ex.type == SystemExit
     assert ex.value.code == 0
 
     captured = capsys.readouterr()

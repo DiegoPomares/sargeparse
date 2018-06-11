@@ -121,6 +121,30 @@ class Sarge(SubCommand):
 
         return self._data
 
+    @classmethod
+    def main_command(cls, definition, **kwargs):
+        def caller(fn):
+            callback = definition.get('callback')
+            if callback:
+                msg = "Cannot use the subcommand decorator with a 'callback' in the definition: {}".format(
+                    callback)
+                raise ValueError(msg)
+
+            definition['callback'] = fn
+
+            def wrapper(_, *args, **kwargs):
+                return fn(*args, **kwargs)
+
+            # Create a subclass of Sarge that when called, calls to a wrapped fn (ditches "self")
+            metaclass = cls.__class__
+            classname = '{}_{}'.format(cls.__name__, fn.__name__)
+            new_cls = metaclass(classname, (cls,), {})
+            wrapper.fn = fn
+            new_cls.__call__ = wrapper
+
+            return new_cls(definition, **kwargs)
+        return caller
+
     def _parse_cli_arguments(self, argv):
         argument_parser_kwargs = self._parser.argument_parser_kwargs.copy()
         argument_parser_kwargs['argument_default'] = sargeparse.unset
@@ -161,7 +185,7 @@ class Sarge(SubCommand):
 
     def _make_help_subparser(self):
         parser = Parser(
-            {'name': 'help', 'help': "show this message"},
+            {'name': 'help', 'help': "show this help message and exit"},
             show_warnings=self._show_warnings,
             main_command=False,
         )
@@ -178,6 +202,7 @@ class Sarge(SubCommand):
 class _ArgumentParserWrapper:
     def __init__(self, parser):
         self.parser = parser
+        self._has_usage_header = False
 
     def add_arguments(self, *objs):
         for obj in objs:
@@ -207,18 +232,23 @@ class _ArgumentParserWrapper:
                 self._add_argument(obj, dest=group)
 
     def _add_mutex_group(self, mutex_group, *, dest):
+        is_required = mutex_group.is_required()
         group = dest.add_mutually_exclusive_group(
-            required=mutex_group.is_required(),
+            required=is_required,
         )
 
         for argument in mutex_group.arguments:
-            self._add_argument(argument, dest=group)
+            self._add_argument(argument, has_mutex_group=True, dest=group)
 
     @staticmethod
-    def _add_argument(argument, *, dest):
+    def _add_argument(argument, *, has_mutex_group=False, dest):
+        add_argument_kwargs = argument.add_argument_kwargs.copy()
+        if has_mutex_group:
+            add_argument_kwargs.pop('required', None)
+
         dest.add_argument(
             *argument.names,
-            **argument.add_argument_kwargs
+            **add_argument_kwargs
         )
 
     def add_subcommands(self, *subparsers):
@@ -241,18 +271,17 @@ class _ArgumentParserWrapper:
             self._add_subcommand_usage_to_description(subparser, new_parser)
 
     def _add_subcommand_usage_to_description(self, subparser, new_parser):
-        usages = []
+        if not subparser.add_usage_to_parent_command_desc:
+            return
 
-        if subparser.add_usage_to_parent_command_desc:
-            usages.append(new_parser.parser.format_usage()[7:])
-
-        if usages:
+        if not self._has_usage_header:
             if self.parser.description:
                 self.parser.description += '\n\n'
 
-            self.parser.description += 'usage:\n  '
+            self.parser.description += 'usage:\n'
+            self._has_usage_header = True
 
-            self.parser.description += '\n  '.join(usages)
+        self.parser.description += '  ' + new_parser.parser.format_usage()[7:]
 
     def get_subparsers_obj(self):
         return self.parser._subparsers._group_actions[0]

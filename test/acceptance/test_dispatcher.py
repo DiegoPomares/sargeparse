@@ -4,11 +4,11 @@ import shlex
 
 from collections import ChainMap
 
-import sargeparse
 import pytest
+import sargeparse
 
 
-def test_callback_dispatch_and_decorator():
+def test_callback_dispatch_with_decorators():
 
     obj_main = {
         'last': True
@@ -24,7 +24,32 @@ def test_callback_dispatch_and_decorator():
         'value': 1
     }
 
-    def cb_main(ctx):
+    def cb_sub(ctx):
+        assert ctx.last is True
+        assert ctx.obj['value'] == 2
+        assert ctx.data['arg1'] == 'A1'
+        assert ctx.data['arg2'] == 'A2'
+
+        assert ctx.return_value == 10
+
+    @sargeparse.Sarge.main_command({
+        'arguments': [
+            {
+                'names': ['--arg1'],
+                'default': 'A1',
+            },
+            {
+                'names': ['--arg2'],
+            },
+        ],
+        'subcommands': [
+            {
+                'name': 'sub',
+                'callback': cb_sub,
+            }
+        ]
+    })
+    def parser(ctx):
         assert ctx.last == ctx.obj['last']
         assert ctx.return_value is None
 
@@ -44,33 +69,6 @@ def test_callback_dispatch_and_decorator():
 
         return 10
 
-    def cb_sub(ctx):
-        assert ctx.last is True
-        assert ctx.obj['value'] == 2
-        assert ctx.data['arg1'] == 'A1'
-        assert ctx.data['arg2'] == 'A2'
-
-        assert ctx.return_value == 10
-
-    parser = sargeparse.Sarge({
-        'callback': cb_main,
-        'arguments': [
-            {
-                'names': ['--arg1'],
-                'default': 'A1',
-            },
-            {
-                'names': ['--arg2'],
-            },
-        ],
-        'subcommands': [
-            {
-                'name': 'sub',
-                'callback': cb_sub,
-            }
-        ]
-    })
-
     @parser.subcommand({
         'name': 'deco',
         'arguments': [
@@ -89,7 +87,7 @@ def test_callback_dispatch_and_decorator():
 
     sys.argv = shlex.split('test')
     args = parser.parse()
-    assert args.callbacks == [cb_main]
+    assert args.callbacks == [parser.__call__.fn]
     args.dispatch(obj=obj_main)
     assert args == ChainMap(
         {},
@@ -107,7 +105,7 @@ def test_callback_dispatch_and_decorator():
 
     sys.argv = shlex.split('test sub')
     args = parser.parse()
-    assert args.callbacks == [cb_main, cb_sub]
+    assert args.callbacks == [parser.__call__.fn, cb_sub]
     args.dispatch(obj=obj_sub)
     assert args == ChainMap(
         {
@@ -128,7 +126,7 @@ def test_callback_dispatch_and_decorator():
     sys.argv = shlex.split('test deco')
     args = parser.parse()
     print(args.callbacks)
-    assert args.callbacks == [cb_main, cb_deco]
+    assert args.callbacks == [parser.__call__.fn, cb_deco]
     args.dispatch(obj=obj_deco)
     assert args == ChainMap(
         {
@@ -192,7 +190,6 @@ def test_callback_dispatch_special_returns():
     obj = {'value': 1}
     with pytest.raises(SystemExit) as ex:
         args.dispatch(obj=obj)
-    assert ex.type == SystemExit
     assert ex.value.code == 100
     assert obj['value'] == 10
 
