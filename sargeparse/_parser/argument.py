@@ -95,12 +95,11 @@ class Argument:
 
     def _apply_type(self, value):
         fn = self.add_argument_kwargs.get('type', self._same)
-        nargs = self.add_argument_kwargs.get('nargs')
 
-        if not nargs or nargs == '?':
-            return fn(value)
+        if isinstance(value, list):
+            return [fn(v) for v in value]
 
-        return [fn(v) for v in value]
+        return fn(value)
 
     def _process_add_argument_kwargs(self, main_command):
         self._process_common_add_argument_kwargs()
