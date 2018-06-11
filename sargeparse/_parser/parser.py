@@ -131,11 +131,11 @@ class Parser:  # pylint: disable=too-many-instance-attributes
         )
 
     def _process_add_subparsers_kwargs(self):
-        self._log_warning_if_elements_are_different_from_none(self.custom_parameters['subparser'], 'prog', 'help')
+        self._log_warning_if_elements_are_different_from_none(self.add_subparsers_kwargs, 'prog', 'help')
 
-        self.custom_parameters['subparser'].setdefault('title', 'subcommands')
-        self.custom_parameters['subparser'].setdefault('metavar', 'SUBCOMMAND')
-        self.custom_parameters['subparser'].setdefault('help', None)
+        self.add_subparsers_kwargs.setdefault('title', 'subcommands')
+        self.add_subparsers_kwargs.setdefault('metavar', 'SUBCOMMAND')
+        self.add_subparsers_kwargs.setdefault('help', None)
 
     def _process_custom_parameters(self):
         self._process_common_custom_parameters()

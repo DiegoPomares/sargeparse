@@ -174,9 +174,10 @@ class Sarge(SubCommand):
         apw.add_arguments(*arguments)
 
         # Add subcommands
-        apw.add_subcommands(*self._parser.subparsers)
+        apw.add_subcommands(*self._parser.subparsers,
+                            add_subparsers_kwargs=self._parser.add_subparsers_kwargs)
         if self._parser.subparsers and self.help_subcommand:
-            apw.add_subcommands(self._make_help_subparser())
+            apw.add_subcommands(self._make_help_subparser(), add_subparsers_kwargs={})
 
         # Finish parsing args
         parsed_args = apw.parse_args(rest, parsed_args)
@@ -251,10 +252,10 @@ class _ArgumentParserWrapper:
             **add_argument_kwargs
         )
 
-    def add_subcommands(self, *subparsers):
+    def add_subcommands(self, *subparsers, add_subparsers_kwargs):
         for subparser in subparsers:
 
-            self.setup_subparsers(**subparser.add_subparsers_kwargs)
+            self.setup_subparsers(**add_subparsers_kwargs)
 
             new_parser = self.add_parser(
                 subparser.name,
@@ -266,7 +267,8 @@ class _ArgumentParserWrapper:
             arguments = subparser.compile_argument_list()
             new_parser.add_arguments(*arguments)
 
-            new_parser.add_subcommands(*subparser.subparsers)
+            new_parser.add_subcommands(*subparser.subparsers,
+                                       add_subparsers_kwargs=subparser.add_subparsers_kwargs)
 
             self._add_subcommand_usage_to_description(subparser, new_parser)
 
