@@ -23,13 +23,19 @@ class HelpFormatter(argparse.HelpFormatter):
         return width
 
     def _fill_text(self, text, width, indent):
-        return textwrap.fill(
-            text,
-            width,
-            initial_indent=indent,
-            subsequent_indent=indent,
-            replace_whitespace=False,
-        )
+        lines = text.splitlines()
+        wrapped_lines = []
+
+        for line in lines:
+            wrapped_lines.append(textwrap.fill(
+                line,
+                width,
+                initial_indent=indent,
+                subsequent_indent=indent,
+                replace_whitespace=False,
+            ))
+
+        return '\n'.join(wrapped_lines)
 
     @staticmethod
     def _subparsers_remove_header(action):
