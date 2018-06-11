@@ -185,7 +185,7 @@ class Sarge(SubCommand):
 
     def _make_help_subparser(self):
         parser = Parser(
-            {'name': 'help', 'help': "show this message"},
+            {'name': 'help', 'help': "show this help message and exit"},
             show_warnings=self._show_warnings,
             main_command=False,
         )
@@ -202,6 +202,7 @@ class Sarge(SubCommand):
 class _ArgumentParserWrapper:
     def __init__(self, parser):
         self.parser = parser
+        self._has_usage_header = False
 
     def add_arguments(self, *objs):
         for obj in objs:
@@ -265,18 +266,17 @@ class _ArgumentParserWrapper:
             self._add_subcommand_usage_to_description(subparser, new_parser)
 
     def _add_subcommand_usage_to_description(self, subparser, new_parser):
-        usages = []
+        if not subparser.add_usage_to_parent_command_desc:
+            return
 
-        if subparser.add_usage_to_parent_command_desc:
-            usages.append(new_parser.parser.format_usage()[7:])
-
-        if usages:
+        if not self._has_usage_header:
             if self.parser.description:
                 self.parser.description += '\n\n'
 
-            self.parser.description += 'usage:\n  '
+            self.parser.description += 'usage:\n'
+            self._has_usage_header = True
 
-            self.parser.description += '\n  '.join(usages)
+        self.parser.description += '  ' + new_parser.parser.format_usage()[7:]
 
     def get_subparsers_obj(self):
         return self.parser._subparsers._group_actions[0]
