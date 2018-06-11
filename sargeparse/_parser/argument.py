@@ -48,7 +48,7 @@ class Argument:
             return default
 
         value = os.environ[envvar]
-        return self.add_argument_kwargs.get('type', self._same)(value)
+        return self._apply_type(value)
 
     def get_default_value(self, *, default=None, apply_type=False):
         """Return default value from add_argument() kwargs"""
@@ -60,7 +60,7 @@ class Argument:
         if not apply_type:
             return value
 
-        return self.add_argument_kwargs.get('type', self._same)(value)
+        return self._apply_type(value)
 
     def get_value_from_config(self, config, *, default=None):
         """Return value from dict, and apply its type"""
@@ -74,7 +74,7 @@ class Argument:
         except KeyError:
             return default
 
-        return self.add_argument_kwargs.get('type', self._same)(value)
+        return self._apply_type(value)
 
     def is_positional(self):
         """Return whether or not an argument is 'positional', being 'optional' the alternative"""
@@ -92,6 +92,15 @@ class Argument:
                 return False
 
         return True
+
+    def _apply_type(self, value):
+        fn = self.add_argument_kwargs.get('type', self._same)
+        nargs = self.add_argument_kwargs.get('nargs')
+
+        if not nargs or nargs == '?':
+            return fn(value)
+
+        return [fn(v) for v in value]
 
     def _process_add_argument_kwargs(self, main_command):
         self._process_common_add_argument_kwargs()
