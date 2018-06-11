@@ -232,18 +232,23 @@ class _ArgumentParserWrapper:
                 self._add_argument(obj, dest=group)
 
     def _add_mutex_group(self, mutex_group, *, dest):
+        is_required = mutex_group.is_required()
         group = dest.add_mutually_exclusive_group(
-            required=mutex_group.is_required(),
+            required=is_required,
         )
 
         for argument in mutex_group.arguments:
-            self._add_argument(argument, dest=group)
+            self._add_argument(argument, has_mutex_group=True, dest=group)
 
     @staticmethod
-    def _add_argument(argument, *, dest):
+    def _add_argument(argument, *, has_mutex_group=False, dest):
+        add_argument_kwargs = argument.add_argument_kwargs.copy()
+        if has_mutex_group:
+            add_argument_kwargs.pop('required', None)
+
         dest.add_argument(
             *argument.names,
-            **argument.add_argument_kwargs
+            **add_argument_kwargs
         )
 
     def add_subcommands(self, *subparsers):

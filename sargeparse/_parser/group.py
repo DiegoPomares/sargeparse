@@ -1,3 +1,6 @@
+from collections import Counter
+
+
 class ArgumentGroup:
     def __init__(self, title, *, description):
         self.title = title
@@ -10,8 +13,10 @@ class MutualExclussionGroup:
         self.arguments = []
 
     def is_required(self):
-        for argument in self.arguments:
-            if not argument.validate_schema({'required': False}):
-                return True
+        required = Counter((arg.validate_schema({'required': True}) for arg in self.arguments))
 
-        return False
+        if len(required) > 1:
+            msg = "'required' property in all mutex group arguments' must have the same value (True or False)"
+            raise ValueError(msg)
+
+        return required.most_common(1)[0][0]
