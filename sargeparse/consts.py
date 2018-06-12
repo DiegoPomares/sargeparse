@@ -18,6 +18,8 @@ def _sentinel_factory(name):
         def __call__(self, value):
             return Sentinel(value)
 
+        # Add and radd were added because argparse uses the default value as the initial value
+        # when action='count', instead of 0
         def __add__(self, other):
             return other
 
