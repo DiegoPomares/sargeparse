@@ -28,6 +28,7 @@ class Parser:  # pylint: disable=too-many-instance-attributes
             'callback': definition.pop('callback', None),
             'add_usage_to_parent_command_desc': definition.pop('add_usage_to_parent_command_desc', False),
             'group_descriptions': definition.pop('group_descriptions', {}),
+            'add_help': definition.pop('add_help', True),
             'defaults': definition.pop('defaults', {}),
             'subparser': definition.pop('subparser', {}),
         }
@@ -101,6 +102,9 @@ class Parser:  # pylint: disable=too-many-instance-attributes
         if 'description' in self.argument_parser_kwargs:
             desc = textwrap.dedent(self.argument_parser_kwargs['description'])
             self.argument_parser_kwargs['description'] = desc
+
+        # Help flag is handled internally
+        self.argument_parser_kwargs['add_help'] = False
 
         if python_version('<3.5'):  # Unsupported
             if 'allow_abbrev' in self.argument_parser_kwargs:
@@ -177,13 +181,33 @@ class Parser:  # pylint: disable=too-many-instance-attributes
             for k, v in filtered_dict.items():
                 LOG.warning(msg, k, v)
 
+    def _make_help_argument(self):
+        definition = {
+            'names': ['-h', '--help'],
+            'help': 'show this help message and exit',
+            'action': 'help',
+        }
+
+        return Argument(
+            definition,
+            show_warnings=self._show_warnings,
+            prefix_chars=self._prefix_chars,
+            main_command=self.main_command,
+        )
+
     def compile_argument_list(self, schema=None):
         schema = schema or {}
+        all_arguments = self.arguments.copy()
         argument_list = []
         mutexes = {}
         groups = {}
 
-        arguments = [a for a in self.arguments if a.validate_schema(schema)]
+        # Add help
+        if self.custom_parameters['add_help']:
+            all_arguments.append(self._make_help_argument())
+
+        # Filter according to schema
+        arguments = [a for a in all_arguments if a.validate_schema(schema)]
 
         # Make groups / mutex_groups argument list
         for argument in arguments:
