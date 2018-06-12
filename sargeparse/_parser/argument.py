@@ -156,11 +156,11 @@ class Argument:
     def _process_common_custom_parameters(self):
         # Override default group names
         if not self.group:
-            if self.add_argument_kwargs.get('required'):
-                self.group = 'required arguments'
-
-            elif self.custom_parameters.get('global'):
+            if self.custom_parameters.get('global'):
                 self.group = 'general arguments'
+
+            elif self.add_argument_kwargs.get('required'):
+                self.group = 'required arguments'
 
             else:
                 self.group = 'optional arguments'

@@ -82,7 +82,7 @@ def test_mutex_group_global(capsys):
     assert re.search(r'\[\s*?-x\s+?.+?\|\s*?-y\s+?.+?\]', captured.out)
 
 
-def test_mutex_group_global_required(capsys):
+def test_mutex_group_global_required():
     definition = {
         'arguments': [
             {
@@ -147,7 +147,7 @@ def test_mutex_group_groups(capsys):
     assert re.search(r'\[\s*?-x\s+?.+?\|\s*?-y\s+?.+?\]', captured.out)
 
 
-def test_mutex_group_groups_required(capsys):
+def test_mutex_group_groups_required():
     definition = {
         'arguments': [
             {
