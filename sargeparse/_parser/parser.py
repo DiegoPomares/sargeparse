@@ -195,12 +195,30 @@ class Parser:  # pylint: disable=too-many-instance-attributes
             main_command=self.main_command,
         )
 
+    def _validate_mutex_groups(self):
+        mutex_groups = {a.mutex_group for a in self.arguments if a.mutex_group}
+
+        for mutex in mutex_groups:
+            properties = {
+                'required': {a.validate_schema({'required': True}) for a in self.arguments if a.mutex_group == mutex},
+                'global': {a.validate_schema({'global': True}) for a in self.arguments if a.mutex_group == mutex},
+                'group': {a.group for a in self.arguments if a.mutex_group == mutex},
+            }
+
+            for k, v in properties.items():
+                if len(v) > 1:
+                    msg = "'{}' property must have the same value in all mutex group arguments".format(k)
+                    raise ValueError(msg)
+
     def compile_argument_list(self, schema=None):
         schema = schema or {}
         all_arguments = self.arguments.copy()
         argument_list = []
         mutexes = {}
         groups = {}
+
+        # Verify mutex_group conditions are right
+        self._validate_mutex_groups()
 
         # Add help
         if self.custom_parameters['add_help']:
@@ -229,7 +247,9 @@ class Parser:  # pylint: disable=too-many-instance-attributes
             if mutex:
                 # Add mutex to 'argument_list' if not there already
                 if mutex not in mutexes:
-                    mutexes[mutex] = MutualExclussionGroup()
+                    mutexes[mutex] = MutualExclussionGroup(
+                        required=argument.add_argument_kwargs.get('required', False)
+                    )
                     target.append(mutexes[mutex])
 
                 target = mutexes[mutex].arguments
