@@ -32,7 +32,7 @@ def test_callback_dispatch_with_decorators():
 
         assert ctx.return_value == 10
 
-    @sargeparse.Sarge.main_command({
+    @sargeparse.Sarge.new_command({
         'arguments': [
             {
                 'names': ['--arg1'],

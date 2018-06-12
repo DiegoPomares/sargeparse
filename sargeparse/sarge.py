@@ -122,11 +122,19 @@ class Sarge(SubCommand):
         return self._data
 
     @classmethod
-    def main_command(cls, definition, **kwargs):
+    def new_command(cls, definition, **kwargs):
+        return cls._decorator(cls, definition, kwargs)
+
+    @classmethod
+    def new_subcommand(cls, definition, **kwargs):  # pylint: disable=arguments-differ
+        return cls._decorator(SubCommand, definition, kwargs)
+
+    @staticmethod
+    def _decorator(klass, definition, kwargs):
         def caller(fn):
             callback = definition.get('callback')
             if callback:
-                msg = "Cannot use the subcommand decorator with a 'callback' in the definition: {}".format(
+                msg = "Cannot use the decorator with a 'callback' in the definition: {}".format(
                     callback)
                 raise ValueError(msg)
 
@@ -135,10 +143,10 @@ class Sarge(SubCommand):
             def wrapper(_, *args, **kwargs):
                 return fn(*args, **kwargs)
 
-            # Create a subclass of Sarge that when called, calls to a wrapped fn (ditches "self")
-            metaclass = cls.__class__
-            classname = '{}_{}'.format(cls.__name__, fn.__name__)
-            new_cls = metaclass(classname, (cls,), {})
+            # Create a subclass of klass that when called, calls to a wrapped fn (ditches "self")
+            metaclass = klass.__class__
+            classname = '{}_{}'.format(klass.__name__, fn.__name__)
+            new_cls = metaclass(classname, (klass,), {})
             wrapper.fn = fn
             new_cls.__call__ = wrapper
 
