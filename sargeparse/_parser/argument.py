@@ -163,8 +163,7 @@ class Argument:
                 self.group = 'general arguments'
 
             else:
-                # TODO rename this to 'optional arguments' after reimplementing add_help
-                self.group = 'other arguments'
+                self.group = 'optional arguments'
 
     def _process_custom_parameters_for_main_command(self):
         pass
