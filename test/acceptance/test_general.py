@@ -16,6 +16,9 @@ def test_full_ok(caplog):
     def fn_run():
         pass
 
+    def fn_subc():
+        pass
+
     parser = sargeparse.Sarge({
         'description': 'MAIN_DESCRIPTION',
         'epilog': 'MAIN_EPILOG',
@@ -88,6 +91,13 @@ def test_full_ok(caplog):
         ],
     })
 
+    subc = sargeparse.SubCommand({
+        'name': 'subc',
+        'callback': fn_subc,
+    })
+
+    parser.add_subcommand(subc)
+
     def get_config(_args):
         return {
             'boss': 'configboss',
@@ -141,6 +151,10 @@ def test_full_ok(caplog):
 
     for param in ['debug', 'x', 'flag']:
         assert "Missing 'help' in {}".format(param) in caplog.text
+
+    sys.argv = shlex.split('test subc')
+    args = parser.parse()
+    assert args.callbacks == [fn_main, fn_subc]
 
 
 def test_envvar_default_config_same_name_many_subcommands():
