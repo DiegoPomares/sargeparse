@@ -159,3 +159,63 @@ def test_group_descriptions(capsys):
     assert re.search(r'^group1:\s+GROUP1 DESC', captured.out, re.MULTILINE)
     assert re.search(r'^group2:\s+GROUP2 DESC', captured.out, re.MULTILINE)
     assert re.search(r'^group3:\s+GROUP3 DESC', captured.out, re.MULTILINE)
+
+
+def test_add_usage_to_parent_command_desc(capsys):
+    parser = sargeparse.Sarge({
+        'subcommands': [
+            {
+                'name': 'sub1',
+                'help': 'SUBC1',
+                'add_usage_to_parent_command_desc': True,
+                'arguments': [
+                    {
+                        'names': ['-a1']
+                    },
+                    {
+                        'names': ['b1']
+                    },
+                ]
+            },
+            {
+                'name': 'sub2',
+                'help': 'SUBC2',
+                'add_usage_to_parent_command_desc': True,
+                'arguments': [
+                    {
+                        'names': ['-a2']
+                    },
+                    {
+                        'names': ['b2']
+                    },
+                ]
+            },
+            {
+                'name': 'sub3',
+                'help': 'SUBC3',
+                'arguments': [
+                    {
+                        'names': ['-a3']
+                    },
+                    {
+                        'names': ['b3']
+                    },
+                ]
+            },
+        ],
+    })
+
+    with pytest.raises(SystemExit) as ex:
+        sys.argv = shlex.split('test -h')
+        parser.parse()
+
+    assert ex.value.code == 0
+
+    captured = capsys.readouterr()
+    assert re.search(r'^\s*test\s+sub1\s*\[\s*-a1\s+A1\s*\].+?b1$', captured.out, re.MULTILINE)
+    assert re.search(r'^\s*test\s+sub2\s*\[\s*-a2\s+A2\s*\].+?b2$', captured.out, re.MULTILINE)
+    assert not re.search(r'^\s*test\s+sub3\s*\[\s*-a2\s+A3\s*\].+?b3$', captured.out, re.MULTILINE)
+
+    assert re.search(r'^\s*sub1\s+SUBC1', captured.out, re.MULTILINE)
+    assert re.search(r'^\s*sub2\s+SUBC2', captured.out, re.MULTILINE)
+    assert re.search(r'^\s*sub3\s+SUBC3', captured.out, re.MULTILINE)
