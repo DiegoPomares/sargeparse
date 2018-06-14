@@ -27,6 +27,7 @@ def test_full_ok(caplog):
                 'default': False,
                 'global': True,
                 'envvar': 'DEBUG',
+                'config_path': 'path_doesnt_exists_but_thats_ok',
             },
             {
                 'names': ['-x'],
@@ -60,7 +61,7 @@ def test_full_ok(caplog):
     parser.add_arguments({
         'names': ['-a', '--arg'],
         'help': 'ARG_HELP',
-        'config_path': 1,
+        'config_path': ['args', 'arg'],
         'default': 'argdef',
     }, {
         'names': ['-b', '--barg'],
@@ -90,9 +91,9 @@ def test_full_ok(caplog):
     def get_config(_args):
         return {
             'boss': 'configboss',
-            1: 'configarg',
             'args': {
-                'barg': 'configbarg'
+                'arg': 'configarg',
+                'barg': 'configbarg',
             }
         }
 

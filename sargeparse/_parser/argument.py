@@ -165,6 +165,19 @@ class Argument:
             else:
                 self.group = 'optional arguments'
 
+        # Validate 'config_path'
+        config_path = self.custom_parameters['config_path']
+        if config_path != sargeparse.unset:
+            if isinstance(config_path, str):
+                self.custom_parameters['config_path'] = re.split(r'(?<!\\)/', config_path)
+
+            elif not (
+                    config_path and
+                    isinstance(config_path, list) and
+                    all((isinstance(v, str) for v in config_path))
+            ):
+                raise TypeError("Paths in 'config_path' can only be <str> or <list of str>")
+
     def _process_custom_parameters_for_main_command(self):
         pass
 
@@ -204,23 +217,16 @@ class Argument:
     def _get_value_from_path(self, dictionary, path):
         """Return the value for path, where path represent a list of keys in nested dicts separated by '/'"""
 
-        if isinstance(path, str):
-            path = re.split(r'(?<!\\)/', path)
-        elif not isinstance(path, list):
-            path = [path]
+        key = path[0]
 
-        if path:
-            key = path[0]
-        else:
-            raise RuntimeError("Invalid path config_path, it's probably better to use strings")
+        if len(path) == 1:
+            return dictionary[key]
 
-        if len(path) > 1:
-            if key not in dictionary:
-                raise KeyError("Path not found")
+        if key not in dictionary:
+            raise KeyError("Path not found")
 
-            return self._get_value_from_path(dictionary[key], path[1:])
+        return self._get_value_from_path(dictionary[key], path[1:])
 
-        return dictionary[key]
 
     @staticmethod
     def _same(arg):
