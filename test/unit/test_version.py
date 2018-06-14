@@ -1,8 +1,9 @@
 # pylint: disable=redefined-outer-name
 import random
 
-import pytest
 from sys import version_info
+
+import pytest
 
 from sargeparse.version import python_version
 
