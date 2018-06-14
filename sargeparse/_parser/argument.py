@@ -227,7 +227,6 @@ class Argument:
 
         return self._get_value_from_path(dictionary[key], path[1:])
 
-
     @staticmethod
     def _same(arg):
         """This is used as the default function for 'type' parameter"""
