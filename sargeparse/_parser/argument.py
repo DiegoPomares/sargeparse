@@ -222,9 +222,6 @@ class Argument:
         if len(path) == 1:
             return dictionary[key]
 
-        if key not in dictionary:
-            raise KeyError("Path not found")
-
         return self._get_value_from_path(dictionary[key], path[1:])
 
     @staticmethod
