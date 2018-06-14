@@ -119,3 +119,43 @@ def test_show_default_and_help(capsys):
             'arg7': sargeparse.unset,
         },
     )
+
+
+def test_group_descriptions(capsys):
+    parser = sargeparse.Sarge({
+        'arguments': [
+            {
+                'names': ['arg1'],
+                'group': 'group1',
+            },
+            {
+                'names': ['arg2'],
+                'group': 'group2',
+            }
+
+        ],
+        'group_descriptions': {
+            'group1': 'GROUP1 DESC',
+        }
+    })
+
+    parser.add_arguments({
+        'names': ['arg3'],
+        'group': 'group3',
+    })
+
+    parser.add_group_descriptions({
+        'group2': 'GROUP2 DESC',
+        'group3': 'GROUP3 DESC',
+    })
+
+    with pytest.raises(SystemExit) as ex:
+        sys.argv = shlex.split('test -h')
+        parser.parse()
+
+    assert ex.value.code == 0
+
+    captured = capsys.readouterr()
+    assert re.search(r'^group1:\s+GROUP1 DESC', captured.out, re.MULTILINE)
+    assert re.search(r'^group2:\s+GROUP2 DESC', captured.out, re.MULTILINE)
+    assert re.search(r'^group3:\s+GROUP3 DESC', captured.out, re.MULTILINE)
