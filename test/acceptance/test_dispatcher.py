@@ -244,3 +244,47 @@ def test_callback_dispatch_special_returns():
     obj = {'value': 3}
     assert args.dispatch(obj=obj) == 300
     assert obj['value'] == 30
+
+
+def test_callback_decorator_duplicate_sarge():
+    def cb_main(ctx):
+        pass
+
+    with pytest.raises(ValueError) as ex:
+        @sargeparse.Sarge.decorator({
+            'callback': cb_main,
+        })
+        def cb_main_2(ctx):
+            pass
+
+    assert "Cannot use the decorator with a 'callback' in the definition" in str(ex)
+
+
+def test_callback_decorator_duplicate_subcommand():
+    def cb_main(ctx):
+        pass
+
+    with pytest.raises(ValueError) as ex:
+        @sargeparse.SubCommand.decorator({
+            'callback': cb_main,
+        })
+        def cb_main_2(ctx):
+            pass
+
+    assert "Cannot use the decorator with a 'callback' in the definition" in str(ex)
+
+
+def test_callback_subcommand_decorator_duplicate():
+    def cb_sub(ctx):
+        pass
+
+    parser = sargeparse.Sarge({})
+
+    with pytest.raises(ValueError) as ex:
+        @parser.subcommand_decorator({
+            'callback': cb_sub,
+        })
+        def cb_sub2(ctx):
+            pass
+
+    assert "Cannot use the subcommand decorator with a 'callback' in the definition" in str(ex)
