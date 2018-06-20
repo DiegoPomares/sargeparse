@@ -37,7 +37,7 @@ def test_callback_dispatch_with_decorators():
 
         assert ctx.return_value == 10
 
-    @sargeparse.Sarge.new_command({
+    @sargeparse.Sarge.decorator({
         'arguments': [
             {
                 'names': ['--arg1'],
@@ -74,7 +74,7 @@ def test_callback_dispatch_with_decorators():
 
         return 10
 
-    @parser.subcommand({
+    @parser.subcommand_decorator({
         'name': 'deco',
         'arguments': [
             {
@@ -90,7 +90,7 @@ def test_callback_dispatch_with_decorators():
         assert ctx.data['arg2'] == 'A2'
         assert ctx.data['arg3'] == 'A3'
 
-    @sargeparse.Sarge.new_subcommand({
+    @sargeparse.SubCommand.decorator({
         'name': 'sub_deco',
         'arguments': [
             {
@@ -244,3 +244,47 @@ def test_callback_dispatch_special_returns():
     obj = {'value': 3}
     assert args.dispatch(obj=obj) == 300
     assert obj['value'] == 30
+
+
+def test_callback_decorator_duplicate_sarge():
+    def cb_main(ctx):
+        pass
+
+    with pytest.raises(ValueError) as ex:
+        @sargeparse.Sarge.decorator({
+            'callback': cb_main,
+        })
+        def cb_main_2(ctx):
+            pass
+
+    assert "Cannot use the decorator with a 'callback' in the definition" in str(ex)
+
+
+def test_callback_decorator_duplicate_subcommand():
+    def cb_main(ctx):
+        pass
+
+    with pytest.raises(ValueError) as ex:
+        @sargeparse.SubCommand.decorator({
+            'callback': cb_main,
+        })
+        def cb_main_2(ctx):
+            pass
+
+    assert "Cannot use the decorator with a 'callback' in the definition" in str(ex)
+
+
+def test_callback_subcommand_decorator_duplicate():
+    def cb_sub(ctx):
+        pass
+
+    parser = sargeparse.Sarge({})
+
+    with pytest.raises(ValueError) as ex:
+        @parser.subcommand_decorator({
+            'callback': cb_sub,
+        })
+        def cb_sub2(ctx):
+            pass
+
+    assert "Cannot use the subcommand decorator with a 'callback' in the definition" in str(ex)
