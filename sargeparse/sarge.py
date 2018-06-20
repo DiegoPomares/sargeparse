@@ -215,17 +215,10 @@ class _ArgumentParserWrapper:
 
     def add_arguments(self, *objs):
         for obj in objs:
-            if isinstance(obj, ArgumentGroup):
-                self._add_argument_group(obj, dest=self.parser)
+            if not isinstance(obj, ArgumentGroup):
+                raise RuntimeError("Something went wrong, argparse arguments must always be groups")
 
-            elif isinstance(obj, MutualExclussionGroup):
-                self._add_mutex_group(obj, dest=self.parser)
-
-            elif isinstance(obj, Argument):
-                self._add_argument(obj, dest=self.parser)
-
-            else:
-                raise RuntimeError()
+            self._add_argument_group(obj, dest=self.parser)
 
     def _add_argument_group(self, argument_group, *, dest):
         group = dest.add_argument_group(
