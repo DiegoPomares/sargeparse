@@ -95,7 +95,7 @@ class SubCommand:
 
             definition['callback'] = fn
 
-            def wrapper(_, *args, **kwargs):
+            def wrapper(_, *args, **kwargs):  # pragma: no cover
                 return fn(*args, **kwargs)
 
             # Create a subclass of klass that when called, calls to a wrapped fn (ditches "self")
