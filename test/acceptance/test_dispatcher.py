@@ -254,7 +254,7 @@ def test_callback_decorator_duplicate_sarge():
         @sargeparse.Sarge.decorator({
             'callback': cb_main,
         })
-        def cb_main_2(ctx):
+        def cb_main_2_(ctx):
             pass
 
     assert "Cannot use the decorator with a 'callback' in the definition" in str(ex)
@@ -268,7 +268,7 @@ def test_callback_decorator_duplicate_subcommand():
         @sargeparse.SubCommand.decorator({
             'callback': cb_main,
         })
-        def cb_main_2(ctx):
+        def cb_main_2_(ctx):
             pass
 
     assert "Cannot use the decorator with a 'callback' in the definition" in str(ex)
@@ -284,7 +284,7 @@ def test_callback_subcommand_decorator_duplicate():
         @parser.subcommand_decorator({
             'callback': cb_sub,
         })
-        def cb_sub2(ctx):
+        def cb_sub2_(ctx):
             pass
 
     assert "Cannot use the subcommand decorator with a 'callback' in the definition" in str(ex)
