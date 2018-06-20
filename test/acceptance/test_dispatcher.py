@@ -37,7 +37,7 @@ def test_callback_dispatch_with_decorators():
 
         assert ctx.return_value == 10
 
-    @sargeparse.Sarge.new_command({
+    @sargeparse.Sarge.decorator({
         'arguments': [
             {
                 'names': ['--arg1'],
@@ -74,7 +74,7 @@ def test_callback_dispatch_with_decorators():
 
         return 10
 
-    @parser.subcommand({
+    @parser.subcommand_decorator({
         'name': 'deco',
         'arguments': [
             {
@@ -90,7 +90,7 @@ def test_callback_dispatch_with_decorators():
         assert ctx.data['arg2'] == 'A2'
         assert ctx.data['arg3'] == 'A3'
 
-    @sargeparse.Sarge.new_subcommand({
+    @sargeparse.SubCommand.decorator({
         'name': 'sub_deco',
         'arguments': [
             {

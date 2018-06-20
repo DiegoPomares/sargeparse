@@ -66,7 +66,7 @@ class SubCommand:
         for subcommand in subcommands:
             self.add_subcommand(subcommand)
 
-    def subcommand(self, definition):
+    def subcommand_decorator(self, definition):
         def caller(fn):
             callback = definition.get('callback')
             if callback:
@@ -78,6 +78,34 @@ class SubCommand:
             self.add_subcommand(definition)
 
             return fn
+        return caller
+
+    @classmethod
+    def decorator(cls, definition, **kwargs):
+        return cls._decorator(cls, definition, kwargs)
+
+    @staticmethod
+    def _decorator(klass, definition, kwargs):
+        def caller(fn):
+            callback = definition.get('callback')
+            if callback:
+                msg = "Cannot use the decorator with a 'callback' in the definition: {}".format(
+                    callback)
+                raise ValueError(msg)
+
+            definition['callback'] = fn
+
+            def wrapper(_, *args, **kwargs):
+                return fn(*args, **kwargs)
+
+            # Create a subclass of klass that when called, calls to a wrapped fn (ditches "self")
+            metaclass = klass.__class__
+            classname = '{}_{}'.format(klass.__name__, fn.__name__)
+            new_cls = metaclass(classname, (klass,), {})
+            wrapper.fn = fn
+            new_cls.__call__ = wrapper
+
+            return new_cls(definition, **kwargs)
         return caller
 
 
@@ -122,36 +150,8 @@ class Sarge(SubCommand):
         return self._data
 
     @classmethod
-    def new_command(cls, definition, **kwargs):
+    def decorator(cls, definition, **kwargs):
         return cls._decorator(cls, definition, kwargs)
-
-    @classmethod
-    def new_subcommand(cls, definition, **kwargs):  # pylint: disable=arguments-differ
-        return cls._decorator(SubCommand, definition, kwargs)
-
-    @staticmethod
-    def _decorator(klass, definition, kwargs):
-        def caller(fn):
-            callback = definition.get('callback')
-            if callback:
-                msg = "Cannot use the decorator with a 'callback' in the definition: {}".format(
-                    callback)
-                raise ValueError(msg)
-
-            definition['callback'] = fn
-
-            def wrapper(_, *args, **kwargs):
-                return fn(*args, **kwargs)
-
-            # Create a subclass of klass that when called, calls to a wrapped fn (ditches "self")
-            metaclass = klass.__class__
-            classname = '{}_{}'.format(klass.__name__, fn.__name__)
-            new_cls = metaclass(classname, (klass,), {})
-            wrapper.fn = fn
-            new_cls.__call__ = wrapper
-
-            return new_cls(definition, **kwargs)
-        return caller
 
     def _parse_cli_arguments(self, argv):
         argument_parser_kwargs = self._parser.argument_parser_kwargs.copy()
