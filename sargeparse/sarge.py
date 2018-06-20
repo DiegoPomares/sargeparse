@@ -241,9 +241,8 @@ class _ArgumentParserWrapper:
                 self._add_argument(obj, dest=group)
 
     def _add_mutex_group(self, mutex_group, *, dest):
-        is_required = mutex_group.is_required()
         group = dest.add_mutually_exclusive_group(
-            required=is_required,
+            required=mutex_group.required,
         )
 
         for argument in mutex_group.arguments:
