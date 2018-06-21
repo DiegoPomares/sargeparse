@@ -192,7 +192,7 @@ class Sarge(SubCommand):
         # Add subcommands
         parser_data = apw.add_subcommands(
             *self._parser.subparsers,
-            add_subparsers_kwargs=self._parser.add_subparsers_kwargs,
+            add_subparsers_kwargs=self._parser.add_subparsers_kwargs
         )
         if self._parser.subparsers and self.help_subcommand:
             apw.add_subcommands(self._make_help_subparser(), add_subparsers_kwargs={})
