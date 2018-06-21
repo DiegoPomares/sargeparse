@@ -284,7 +284,7 @@ class _ArgumentParserWrapper:
 
             parser_data.update(new_parser.add_subcommands(
                 *subparser.subparsers,
-                add_subparsers_kwargs=subparser.add_subparsers_kwargs,
+                add_subparsers_kwargs=subparser.add_subparsers_kwargs
             ))
 
             self._add_subcommand_usage_to_description(subparser, new_parser)
