@@ -63,4 +63,3 @@ def test_subcommand_indentation(capsys):
     match = re.search(r'^(?P<indent>\s+)sub\s+SUBC_HELP\s*$', captured.out, re.MULTILINE)
     assert match
     assert match.group('indent') == indent
-

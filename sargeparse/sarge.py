@@ -14,6 +14,14 @@ from sargeparse._parser import (
 )
 
 
+def format_parser_data(arg_parser):
+    return {
+        'prog': arg_parser.prog,
+        'help': arg_parser.format_help(),
+        'usage': arg_parser.format_usage(),
+    }
+
+
 class SubCommand:
     def __init__(self, definition, **kwargs):
         definition = definition.copy()
@@ -130,7 +138,9 @@ class Sarge(SubCommand):
 
         self._data.clear_all()
 
-        cli_args, arg_parser = self._parse_cli_arguments(argv)
+        cli_args, parser_data = self._parse_cli_arguments(argv)
+        self._data.parser_data = parser_data
+
         self._data.cli.update(cli_args)
         self._data._remove_unset_from_data_sources_cli()
         self._data._move_defaults_from_data_sources_cli()
@@ -144,8 +154,6 @@ class Sarge(SubCommand):
 
         self._data._parse_callbacks()
         self._data._remove_parser_key_from_data_sources_cli()
-
-        self._data._set_parser_data(arg_parser)
 
         return self._data
 
@@ -182,15 +190,20 @@ class Sarge(SubCommand):
         apw.add_arguments(*arguments)
 
         # Add subcommands
-        apw.add_subcommands(*self._parser.subparsers,
-                            add_subparsers_kwargs=self._parser.add_subparsers_kwargs)
+        parser_data = apw.add_subcommands(
+            *self._parser.subparsers,
+            add_subparsers_kwargs=self._parser.add_subparsers_kwargs
+        )
         if self._parser.subparsers and self.help_subcommand:
             apw.add_subcommands(self._make_help_subparser(), add_subparsers_kwargs={})
 
         # Finish parsing args
         parsed_args = apw.parse_args(rest, parsed_args)
 
-        return parsed_args.__dict__, ap
+        # Add parser data
+        parser_data[self._parser.parser_key()] = format_parser_data(ap)
+
+        return parsed_args.__dict__, parser_data
 
     def _make_help_subparser(self):
         parser = Parser(
@@ -253,6 +266,8 @@ class _ArgumentParserWrapper:
         )
 
     def add_subcommands(self, *subparsers, add_subparsers_kwargs):
+        parser_data = {}
+
         for subparser in subparsers:
 
             self.setup_subparsers(**add_subparsers_kwargs)
@@ -267,10 +282,16 @@ class _ArgumentParserWrapper:
             arguments = subparser.compile_argument_list()
             new_parser.add_arguments(*arguments)
 
-            new_parser.add_subcommands(*subparser.subparsers,
-                                       add_subparsers_kwargs=subparser.add_subparsers_kwargs)
+            parser_data.update(new_parser.add_subcommands(
+                *subparser.subparsers,
+                add_subparsers_kwargs=subparser.add_subparsers_kwargs
+            ))
 
             self._add_subcommand_usage_to_description(subparser, new_parser)
+
+            parser_data[subparser.parser_key()] = format_parser_data(new_parser.parser)
+
+        return parser_data
 
     def _add_subcommand_usage_to_description(self, subparser, new_parser):
         if not subparser.add_usage_to_parent_command_desc:

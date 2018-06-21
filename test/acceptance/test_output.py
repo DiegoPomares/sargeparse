@@ -301,3 +301,46 @@ def test_help_subcommand_when_disabled(capsys):
 
     captured = capsys.readouterr()
     assert "invalid choice: 'help'" in captured.err
+
+
+def test_print_help_and_exit_if_last(capsys):
+    parser = sargeparse.Sarge({
+        'print_help_and_exit_if_last': True,
+        'subcommands': [
+            {
+                'name': 'sub2',
+                'print_help_and_exit_if_last': False,
+                'subcommands': [
+                    {
+                        'name': 'sub3',
+                        'print_help_and_exit_if_last': True,
+                    }
+                ]
+            }
+        ]
+    })
+
+    with pytest.raises(SystemExit) as ex:
+        sys.argv = shlex.split('test sub2 sub3')
+        args = parser.parse()
+        args.dispatch()
+
+    assert ex.value.code == 0
+
+    captured = capsys.readouterr()
+    assert re.search(r'\s*usage:\s+test sub2 sub3.*$', captured.err, re.MULTILINE)
+
+    # Shouldn't exit even though no callback was added
+    sys.argv = shlex.split('test sub2')
+    args = parser.parse()
+    args.dispatch()
+
+    with pytest.raises(SystemExit) as ex:
+        sys.argv = shlex.split('test')
+        args = parser.parse()
+        args.dispatch()
+
+    assert ex.value.code == 0
+
+    captured = capsys.readouterr()
+    assert re.search(r'\s*usage:\s+test.*$', captured.err, re.MULTILINE)

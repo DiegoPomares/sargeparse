@@ -1,3 +1,4 @@
+import sys
 import textwrap
 import logging
 
@@ -13,7 +14,7 @@ from sargeparse._parser.group import ArgumentGroup, MutualExclussionGroup
 LOG = logging.getLogger(__name__)
 
 
-class Parser:  # pylint: disable=too-many-instance-attributes
+class Parser:
     def __init__(self, definition, **kwargs):
         definition = definition.copy()
 
@@ -28,6 +29,7 @@ class Parser:  # pylint: disable=too-many-instance-attributes
             'callback': definition.pop('callback', None),
             'add_usage_to_parent_command_desc': definition.pop('add_usage_to_parent_command_desc', False),
             'group_descriptions': definition.pop('group_descriptions', {}),
+            'print_help_and_exit_if_last': definition.pop('print_help_and_exit_if_last', False),
             'add_help': definition.pop('add_help', True),
             'defaults': definition.pop('defaults', {}),
             'subparser': definition.pop('subparser', {}),
@@ -150,8 +152,19 @@ class Parser:  # pylint: disable=too-many-instance-attributes
             self._process_custom_parameters_for_subcommand()
 
     def _process_common_custom_parameters(self):
-        if self.callback is not None and not callable(self.callback):
+        if self.callback and self.custom_parameters['print_help_and_exit_if_last']:
+            raise ValueError("'callback' and 'print_help_and_exit_if_last' are mutually exclusive")
+
+        if self.custom_parameters['print_help_and_exit_if_last']:
+            self.callback = self._make_print_help_and_exit_if_last_function()
+
+        if not self.callback:
+            self.callback = (lambda ctx: ctx.return_value)
+
+        if not callable(self.callback):
             raise TypeError("'callback' is not callable")
+
+        self.callback.parser = self
 
     def _process_custom_parameters_for_main_command(self):
         if self.add_usage_to_parent_command_desc:
@@ -159,6 +172,17 @@ class Parser:  # pylint: disable=too-many-instance-attributes
 
     def _process_custom_parameters_for_subcommand(self):
         pass
+
+    @staticmethod
+    def _make_print_help_and_exit_if_last_function():
+        def fn(ctx):
+            if not ctx.last:
+                return None
+
+            print(ctx.parser.help, file=sys.stderr)
+            return sargeparse.die(0)
+
+        return fn
 
     def _log_warning_if_command_has_positional_arguments_and_subparsers(self):
         if self._show_warnings and self._has_positional_arguments and self.subparsers:
