@@ -13,7 +13,7 @@ from sargeparse._parser.group import ArgumentGroup, MutualExclussionGroup
 LOG = logging.getLogger(__name__)
 
 
-class Parser:  # pylint: disable=too-many-instance-attributes
+class Parser:
     def __init__(self, definition, **kwargs):
         definition = definition.copy()
 
