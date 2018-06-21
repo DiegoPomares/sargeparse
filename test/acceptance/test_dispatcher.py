@@ -1,6 +1,7 @@
 # pylint: disable=redefined-outer-name
 import sys
 import shlex
+import re
 
 from collections import ChainMap
 
@@ -24,7 +25,7 @@ def test_callback_dispatch_with_decorators():
         'value': 1
     }
 
-    obj_sub_deco = {
+    obj_sb_dec = {
         'last': False,
         'value': 1
     }
@@ -36,6 +37,9 @@ def test_callback_dispatch_with_decorators():
         assert ctx.data['arg2'] == 'A2'
 
         assert ctx.return_value == 10
+        assert ctx.parser.prog == 'test sub'
+        assert re.match(r'\s*usage:\s+test sub.*$', ctx.parser.usage)
+        assert all(s not in ctx.parser.help for s in ('deco', 'sb_dec'))
 
     @sargeparse.Sarge.decorator({
         'arguments': [
@@ -57,6 +61,9 @@ def test_callback_dispatch_with_decorators():
     def parser(ctx):
         assert ctx.last == ctx.obj['last']
         assert ctx.return_value is None
+        assert ctx.parser.prog == 'test'
+        assert re.match(r'\s*usage:\s+test.*$', ctx.parser.usage)
+        assert all(s in ctx.parser.help for s in ('sub', 'deco', 'sb_dec'))
 
         if ctx.last:
             assert ctx.data['arg1'] == 'A1'
@@ -90,8 +97,13 @@ def test_callback_dispatch_with_decorators():
         assert ctx.data['arg2'] == 'A2'
         assert ctx.data['arg3'] == 'A3'
 
+        assert ctx.return_value == 10
+        assert ctx.parser.prog == 'test deco'
+        assert re.match(r'\s*usage:\s+test deco.*$', ctx.parser.usage)
+        assert all(s not in ctx.parser.help for s in ('sub', 'sb_dec'))
+
     @sargeparse.SubCommand.decorator({
-        'name': 'sub_deco',
+        'name': 'sb_dec',
         'arguments': [
             {
                 'names': ['--arg4'],
@@ -99,14 +111,19 @@ def test_callback_dispatch_with_decorators():
             },
         ]
     })
-    def sub_deco(ctx):
+    def sb_dec(ctx):
         assert ctx.last is True
         assert ctx.obj['value'] == 2
         assert ctx.data['arg1'] == 'A1'
         assert ctx.data['arg2'] == 'A2'
         assert ctx.data['arg4'] == 'A4'
 
-    parser.add_subcommands(sub_deco)
+        assert ctx.return_value == 10
+        assert ctx.parser.prog == 'test sb_dec'
+        assert re.match(r'\s*usage:\s+test sb_dec.*$', ctx.parser.usage)
+        assert all(s not in ctx.parser.help for s in ('sub', 'deco'))
+
+    parser.add_subcommands(sb_dec)
 
     sys.argv = shlex.split('test')
     args = parser.parse()
@@ -168,10 +185,10 @@ def test_callback_dispatch_with_decorators():
         },
     )
 
-    sys.argv = shlex.split('test sub_deco')
+    sys.argv = shlex.split('test sb_dec')
     args = parser.parse()
-    assert args.callbacks == [parser.__call__.fn, sub_deco.__call__.fn]
-    args.dispatch(obj=obj_sub_deco)
+    assert args.callbacks == [parser.__call__.fn, sb_dec.__call__.fn]
+    args.dispatch(obj=obj_sb_dec)
     assert args == ChainMap(
         {
             'arg2': 'A2',

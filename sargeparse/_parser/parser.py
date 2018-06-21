@@ -153,6 +153,9 @@ class Parser:
         if self.callback is not None and not callable(self.callback):
             raise TypeError("'callback' is not callable")
 
+        if self.callback:
+            self.callback.parser = self
+
     def _process_custom_parameters_for_main_command(self):
         if self.add_usage_to_parent_command_desc:
             raise TypeError("'add_usage_to_parent_command_desc' parameter applies only to subcommands")

@@ -27,7 +27,7 @@ class ArgumentData(ChainMap):
         self.defaults = self._data_sources['defaults']
         self._arg_default = self._data_sources['arg_default']
 
-        self.parser = ParserData()
+        self.parser_data = {}
 
         self.set_precedence(precedence)
 
@@ -48,26 +48,29 @@ class ArgumentData(ChainMap):
 
     def dispatch(self, *, obj=None):
         last_callback = len(self.callbacks) - 1
+        return_value = None
 
-        ctx = Context(self, obj)
         for i, fn in enumerate(self.callbacks):
-            ctx.last = (i == last_callback)
+            parser_data = self.parser_data[fn.parser.parser_key()]
+            last = (i == last_callback)
+            ctx = Context(
+                data=self,
+                obj=obj,
+                parser_data=parser_data,
+                last=last,
+                return_value=return_value,
 
-            ctx.return_value = fn(ctx)
+            )
+            return_value = fn(ctx)
 
-            if ctx.return_value == sargeparse.die:
-                sys.exit(ctx.return_value.value)
+            if return_value == sargeparse.die:
+                sys.exit(return_value.value)
 
-            elif ctx.return_value == sargeparse.stop:
-                ctx.return_value = ctx.return_value.value
+            elif return_value == sargeparse.stop:
+                return_value = return_value.value
                 break
 
-        return ctx.return_value
-
-    def _set_parser_data(self, arg_parser):
-        self.parser.prog = arg_parser.prog
-        self.parser.help = arg_parser.format_help()
-        self.parser.usage = arg_parser.format_usage()
+        return return_value
 
     @staticmethod
     def _format_precedence_list(precedence):
@@ -174,15 +177,16 @@ class ArgumentData(ChainMap):
 
 
 class Context:
-    def __init__(self, data, obj):
-        self.data = data
-        self.obj = obj
-        self.last = False
-        self.return_value = None
+    def __init__(self, **kwargs):
+        self.data = kwargs.get('data')
+        self.obj = kwargs.get('obj')
+        self.parser = ParserData(**kwargs.get('parser_data'))
+        self.last = kwargs.get('last')
+        self.return_value = kwargs.get('return_value')
 
 
 class ParserData:
-    def __init__(self):
-        self.prog = None
-        self.help = None
-        self.usage = None
+    def __init__(self, **parser_data):
+        self.prog = parser_data['prog']
+        self.help = parser_data['help']
+        self.usage = parser_data['usage']
