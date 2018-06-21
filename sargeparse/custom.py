@@ -6,7 +6,7 @@ import shutil
 
 class ArgumentParser(argparse.ArgumentParser):
     def error(self, message):
-        sys.stderr.write('error: {}\n\n'.format(message))
+        print('error: {}\n\n'.format(message), file=sys.stderr)
         self.print_usage()
         sys.exit(2)
 
