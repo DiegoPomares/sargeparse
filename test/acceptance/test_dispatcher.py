@@ -3,6 +3,7 @@ import sys
 import shlex
 import re
 
+from types import LambdaType
 from collections import ChainMap
 
 import pytest
@@ -263,6 +264,66 @@ def test_callback_dispatch_special_returns():
     assert obj['value'] == 30
 
 
+def test_callback_dispatch_skipping():
+    obj = {'const': 0}
+
+    def cb_main(ctx):
+        ctx.obj['value'] = 10
+        return 100
+
+    def cb_sub3(ctx):
+        assert ctx.last is True
+        assert ctx.obj['const'] == 0
+        assert ctx.obj['value'] == 10
+        assert ctx.return_value == 100
+
+        ctx.obj['value'] = 30
+        return 300
+
+    parser = sargeparse.Sarge({
+        'callback': cb_main,
+        'subcommands': [
+            {
+                'name': 'sub2',
+                'subcommands': [
+                    {
+                        'name': 'sub3',
+                        'callback': cb_sub3
+                    }
+                ]
+            }
+        ]
+    })
+
+    sys.argv = shlex.split('test sub2 sub3')
+    args = parser.parse()
+
+    assert len(args.callbacks) == 3
+    assert args.callbacks[0] == cb_main
+    assert isinstance(args.callbacks[1], LambdaType)
+    assert args.callbacks[2] == cb_sub3
+
+    assert args.dispatch(obj=obj) == 300
+    assert obj['value'] == 30
+
+    sys.argv = shlex.split('test sub2')
+    args = parser.parse()
+
+    assert len(args.callbacks) == 2
+    assert args.callbacks[0] == cb_main
+    assert isinstance(args.callbacks[1], LambdaType)
+
+    assert args.dispatch(obj=obj) == 100
+    assert obj['value'] == 10
+
+    sys.argv = shlex.split('test')
+    args = parser.parse()
+
+    assert args.callbacks == [cb_main]
+    assert args.dispatch(obj=obj) == 100
+    assert obj['value'] == 10
+
+
 def test_callback_decorator_duplicate_sarge():
     def cb_main(ctx):
         pass
@@ -305,3 +366,16 @@ def test_callback_subcommand_decorator_duplicate():
             pass
 
     assert "Cannot use the subcommand decorator with a 'callback' in the definition" in str(ex)
+
+
+def test_callback_with_print_help_and_exit_if_last():
+    def cb_sub(ctx):
+        pass
+
+    with pytest.raises(ValueError) as ex:
+        sargeparse.Sarge({
+            'callback': cb_sub,
+            'print_help_and_exit_if_last': True,
+        })
+
+    assert re.search(r'callback.*print_help_and_exit_if_last.*mutually exclusive', str(ex))
