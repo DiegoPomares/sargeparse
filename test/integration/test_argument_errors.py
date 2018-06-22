@@ -1,6 +1,5 @@
 # pylint: disable=redefined-outer-name
-import sys
-import shlex
+import re
 
 import pytest
 
@@ -15,8 +14,6 @@ def test_invalid_config_path():
             }
         ],
     }
-
-    sys.argv = shlex.split('test')
 
     for path in (1, [], {}, [1], ['arg', 0]):
         definition['arguments'][0]['config_path'] = path
@@ -92,3 +89,29 @@ def test_global_subcommand_argument():
         sargeparse.Sarge(definition)
 
     assert "Subcommands' arguments cannot be 'global'" in str(ex)
+
+
+def test_nargs_default_mismatch(caplog):
+    definition = {
+        'arguments': [
+            {
+                'names': ['--arg'],
+                'default': 'value',
+            }
+        ],
+    }
+
+    for v in ('*', '+', 1, 2, sargeparse.remainder):
+        with pytest.raises(TypeError) as ex:
+            definition['arguments'][0]['nargs'] = v
+            sargeparse.Sarge(definition)
+
+        assert "'default' must be a list" in str(ex)
+
+    definition['arguments'][0].pop('nargs')
+
+    for v in ((1,), [1], {1}, {1: 2}):
+        definition['arguments'][0]['default'] = v
+        sargeparse.Sarge(definition)
+
+        assert re.search('{}.*{}.*'.format(r'.*arg.*default', type(v)), caplog.text)
