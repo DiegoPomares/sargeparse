@@ -97,7 +97,7 @@ class Argument:
     def _apply_type(self, value):
         fn = self.add_argument_kwargs.get('type', self._same)
 
-        if isinstance(value, list):
+        if self._has_multiple_args():
             return [fn(v) for v in value]
 
         return fn(value)
@@ -137,15 +137,15 @@ class Argument:
         else:  # argument is optional
             self.add_argument_kwargs.setdefault('dest', self.dest)
 
-        nargs = self.add_argument_kwargs.get('nargs')
-        if nargs and (nargs in ['*', '+'] or isinstance(nargs, int)):
-            if not isinstance(self.custom_parameters['default'], list):
+        default = self.custom_parameters['default']
+        if self._has_multiple_args():
+            if default != sargeparse.unset and not isinstance(default, list):
                 raise TypeError("'default' must be a list when 'nargs' is either '*', '+' or int")
 
         else:
-            if isinstance(self.custom_parameters['default'], (list, tuple, dict, set)):
+            if isinstance(default, (list, tuple, dict, set)):
                 msg = "'%s': 'default' probably shouldn't be a %s"
-                LOG.warning(msg, self.dest, type(self.custom_parameters['default']))
+                LOG.warning(msg, self.dest, type(default))
 
     def _process_add_argument_kwargs_for_main_command(self):
         if self.custom_parameters['global'] and self.is_positional():
@@ -193,6 +193,14 @@ class Argument:
 
     def _process_custom_parameters_for_subcommand(self):
         pass
+
+    def _has_multiple_args(self):
+        nargs = self.add_argument_kwargs.get('nargs')
+
+        if nargs and (nargs in ['*', '+'] or isinstance(nargs, int)):
+            return True
+
+        return False
 
     def _make_dest_from_argument_names(self):
         """Get the 'dest' parameter based on the argument names"""

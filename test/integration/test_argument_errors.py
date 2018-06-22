@@ -1,6 +1,4 @@
 # pylint: disable=redefined-outer-name
-import sys
-import shlex
 import re
 
 import pytest
@@ -16,8 +14,6 @@ def test_invalid_config_path():
             }
         ],
     }
-
-    sys.argv = shlex.split('test')
 
     for path in (1, [], {}, [1], ['arg', 0]):
         definition['arguments'][0]['config_path'] = path
