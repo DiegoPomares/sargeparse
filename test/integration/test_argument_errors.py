@@ -101,7 +101,7 @@ def test_nargs_default_mismatch(caplog):
         ],
     }
 
-    for v in ('*', '+', 1, 2):
+    for v in ('*', '+', 1, 2, sargeparse.remainder):
         with pytest.raises(TypeError) as ex:
             definition['arguments'][0]['nargs'] = v
             sargeparse.Sarge(definition)

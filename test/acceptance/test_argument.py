@@ -96,6 +96,36 @@ def test_int_type_many_nargs():
     )
 
 
+def test_int_type_remainder():
+    definition = {
+        'arguments': [
+            {
+                'names': ['--arg'],
+                'nargs': sargeparse.remainder,
+                'type': int,
+            }
+        ],
+    }
+
+    parser = sargeparse.Sarge(definition)
+    sys.argv = shlex.split('test --arg 10 20')
+
+    args = parser.parse()
+
+    assert args == ChainMap(
+        {},
+        {
+            'arg': [10, 20],
+        },
+        {},
+        {},
+        {},
+        {
+            'arg': sargeparse.unset,
+        },
+    )
+
+
 def test_list_default_no_nargs():
     def type_fn(value):
         if isinstance(value, str):

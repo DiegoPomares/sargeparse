@@ -197,7 +197,7 @@ class Argument:
     def _has_multiple_args(self):
         nargs = self.add_argument_kwargs.get('nargs')
 
-        if nargs and (nargs in ['*', '+'] or isinstance(nargs, int)):
+        if nargs and (nargs in ['*', '+', sargeparse.remainder] or isinstance(nargs, int)):
             return True
 
         return False
