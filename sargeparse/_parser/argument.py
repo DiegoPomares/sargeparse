@@ -137,6 +137,16 @@ class Argument:
         else:  # argument is optional
             self.add_argument_kwargs.setdefault('dest', self.dest)
 
+        nargs = self.add_argument_kwargs.get('nargs')
+        if nargs and (nargs in ['*', '+'] or isinstance(nargs, int)):
+            if not isinstance(self.custom_parameters['default'], list):
+                raise TypeError("'default' must be a list when 'nargs' is either '*', '+' or int")
+
+        else:
+            if isinstance(self.custom_parameters['default'], (list, tuple, dict, set)):
+                msg = "'%s': 'default' probably shouldn't be a %s"
+                LOG.warning(msg, self.dest, type(self.custom_parameters['default']))
+
     def _process_add_argument_kwargs_for_main_command(self):
         if self.custom_parameters['global'] and self.is_positional():
             raise TypeError("Positional arguments cannot be 'global': '{}'".format(self.names[0]))
