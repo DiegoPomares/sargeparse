@@ -115,7 +115,9 @@ class Argument:
         if not self.names:
             raise TypeError("Argument 'names' missing or invalid")
 
-        self.dest = self._make_dest_from_argument_names()
+        self.dest = self.add_argument_kwargs.get('dest')
+        if not self.dest:
+            self.dest = self._make_dest_from_argument_names()
 
         if 'help' not in self.add_argument_kwargs and self._show_warnings:
             msg = "Missing 'help' in %s. Please add something helpful, or set it to None to hide this warning"

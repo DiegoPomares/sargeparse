@@ -224,3 +224,37 @@ def test_envvar_default_config_same_name_many_subcommands():
             'arg2': sargeparse.unset,
         }
     )
+
+
+def test_custom_dest():
+    parser = sargeparse.Sarge({
+        'arguments': [
+            {
+                'names': ['--arg1'],
+                'default': '1',
+            },
+            {
+                'names': ['--arg2'],
+                'dest': 'my_dest',
+                'default': '2',
+            },
+        ],
+    })
+
+    sys.argv = ['test']
+    args = parser.parse()
+
+    assert args == ChainMap(
+        {},
+        {},
+        {},
+        {},
+        {
+            'arg1': '1',
+            'my_dest': '2',
+        },
+        {
+            'arg1': sargeparse.unset,
+            'my_dest': sargeparse.unset,
+        }
+    )
