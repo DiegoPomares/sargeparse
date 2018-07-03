@@ -161,6 +161,7 @@ def test_int_type_remainder():
         },
     )
 
+
 def test_list_default_no_nargs():
     def type_fn(value):
         if isinstance(value, str):
