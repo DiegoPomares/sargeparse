@@ -149,7 +149,7 @@ class Sarge(SubCommand):
 
         # Config callback
         if read_config:
-            config = read_config(self._data)
+            config = self._call_read_config(read_config)
             self._data._parse_config(config)
 
         self._data._parse_callbacks()
@@ -160,6 +160,20 @@ class Sarge(SubCommand):
     @classmethod
     def decorator(cls, definition, **kwargs):
         return cls._decorator(cls, definition, kwargs)
+
+    def _call_read_config(self, read_config):
+        if not callable(read_config):
+            raise TypeError("'read_config' is not callable")
+
+        config = read_config(self._data)
+        if config is None:
+            config = {}
+
+        if not isinstance(config, dict):
+            msg = "read_config returned a {} when a dict (or None) was expected"
+            raise TypeError(msg.format(type(config)))
+
+        return config
 
     def _parse_cli_arguments(self, argv):
         argument_parser_kwargs = self._parser.argument_parser_kwargs.copy()
