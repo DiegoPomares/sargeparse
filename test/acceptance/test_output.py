@@ -344,3 +344,56 @@ def test_print_help_and_exit_if_last(capsys):
 
     captured = capsys.readouterr()
     assert re.search(r'\s*usage:\s+test.*$', captured.err, re.MULTILINE)
+
+
+def test_print_help_and_exit_if_last_with_existing_callback(capsys):
+    ctx_obj = {
+        'value': 0,
+    }
+
+    def add_one(ctx):
+        ctx.obj['value'] += 1
+
+    parser = sargeparse.Sarge({
+        'print_help_and_exit_if_last': True,
+        'callback': add_one,
+        'subcommands': [
+            {
+                'name': 'sub2',
+                'print_help_and_exit_if_last': True,
+            }
+        ]
+    })
+
+    with pytest.raises(SystemExit) as ex:
+        sys.argv = shlex.split('test sub2')
+        args = parser.parse()
+        args.dispatch(obj=ctx_obj)
+
+    assert ex.value.code == 0
+    assert ctx_obj['value'] == 1
+
+    captured = capsys.readouterr()
+    assert re.search(r'\s*usage:\s+test sub2.*$', captured.err, re.MULTILINE)
+
+    with pytest.raises(SystemExit) as ex:
+        sys.argv = shlex.split('test')
+        args = parser.parse()
+        args.dispatch()
+
+    assert ex.value.code == 0
+    assert ctx_obj['value'] == 1
+
+    captured = capsys.readouterr()
+    assert re.search(r'\s*usage:\s+test.*$', captured.err, re.MULTILINE)
+
+    with pytest.raises(SystemExit) as ex:
+        sys.argv = shlex.split('test sub2')
+        args = parser.parse()
+        args.dispatch(obj=ctx_obj)
+
+    assert ex.value.code == 0
+    assert ctx_obj['value'] == 2
+
+    captured = capsys.readouterr()
+    assert re.search(r'\s*usage:\s+test sub2.*$', captured.err, re.MULTILINE)

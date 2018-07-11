@@ -366,16 +366,3 @@ def test_callback_subcommand_decorator_duplicate():
             pass
 
     assert "Cannot use the subcommand decorator with a 'callback' in the definition" in str(ex)
-
-
-def test_callback_with_print_help_and_exit_if_last():
-    def cb_sub(ctx):
-        pass
-
-    with pytest.raises(ValueError) as ex:
-        sargeparse.Sarge({
-            'callback': cb_sub,
-            'print_help_and_exit_if_last': True,
-        })
-
-    assert re.search(r'callback.*print_help_and_exit_if_last.*mutually exclusive', str(ex))

@@ -152,14 +152,11 @@ class Parser:
             self._process_custom_parameters_for_subcommand()
 
     def _process_common_custom_parameters(self):
-        if self.callback and self.custom_parameters['print_help_and_exit_if_last']:
-            raise ValueError("'callback' and 'print_help_and_exit_if_last' are mutually exclusive")
+        if not self.callback:
+            self.callback = (lambda ctx: ctx.return_value)
 
         if self.custom_parameters['print_help_and_exit_if_last']:
             self.callback = self._make_print_help_and_exit_if_last_function()
-
-        if not self.callback:
-            self.callback = (lambda ctx: ctx.return_value)
 
         if not callable(self.callback):
             raise TypeError("'callback' is not callable")
@@ -173,11 +170,12 @@ class Parser:
     def _process_custom_parameters_for_subcommand(self):
         pass
 
-    @staticmethod
-    def _make_print_help_and_exit_if_last_function():
+    def _make_print_help_and_exit_if_last_function(self):
+        original_callback = self.callback
+
         def fn(ctx):
             if not ctx.last:
-                return None
+                return original_callback(ctx)
 
             print(ctx.parser.help, file=sys.stderr)
             return sargeparse.die(0)
