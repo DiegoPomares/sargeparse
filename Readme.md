@@ -3,7 +3,3 @@
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FDiegoPomares%2Fsargeparse.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2FDiegoPomares%2Fsargeparse?ref=badge_shield)
 
 A mildly opinionated argument parsing library based on argparse.
-
-
-## License
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FDiegoPomares%2Fsargeparse.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2FDiegoPomares%2Fsargeparse?ref=badge_large)
